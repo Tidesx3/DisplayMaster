@@ -9,12 +9,15 @@
 
 #include "core/log.h"
 #include "core/win.h"
+#include "setup/vdd_setup.h"
 
 namespace dm {
 
 // ---------------------------------------------------------------- MttVddProvider
 
-MttVddProvider::MttVddProvider(std::wstring settings_path) : settings_path_(std::move(settings_path)) {}
+MttVddProvider::MttVddProvider(std::wstring settings_path) : settings_path_(std::move(settings_path)) {
+    if (settings_path_.empty()) settings_path_ = (setup::vdd_settings_dir() / L"vdd_settings.xml").wstring();
+}
 
 bool MttVddProvider::send_command(const std::wstring& cmd, std::wstring* reply) {
     constexpr const wchar_t* kPipe = L"\\\\.\\pipe\\MTTVirtualDisplayPipe";
@@ -146,9 +149,16 @@ std::optional<MonitorInfo> VirtualDisplayManager::wait_for_slot(size_t slot, boo
     return std::nullopt;
 }
 
-void VirtualDisplayManager::detach_unused() {
+void VirtualDisplayManager::prepare(uint32_t min_slots) {
     if (!available_) return;
     std::lock_guard lock(mu_);
+    // Sizing the driver reloads it, which interrupts every virtual monitor; do it now,
+    // while nothing streams, instead of when the second device connects.
+    if (provider_->monitor_count() < min_slots) {
+        DM_LOGI("VDD: provisioning %u monitor slots", min_slots);
+        provider_->configure(min_slots, known_modes_);
+        wait_for_slot(min_slots - 1, false, 8000);
+    }
     detach_unused_locked(SIZE_MAX);
 }
 
@@ -172,12 +182,19 @@ std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const 
     mon = wait_for_slot(slot, true, 3000);
     if (!mon) return std::nullopt;
 
-    const auto pos = position_right_of_desktop(enumerate_monitors(false), mon->gdi_name);
-    if (!set_monitor_mode(mon->gdi_name, mode.width, mode.height, mode.refresh_hz, pos)) {
-        // Refresh rate might not be offered; retry at the driver's choice.
-        if (!set_monitor_mode(mon->gdi_name, mode.width, mode.height, 0, pos)) return std::nullopt;
+    // Right after a driver reload the old monitor instance can still be listed without
+    // the new modes; retry briefly against the freshly enumerated monitor.
+    for (int attempt = 0; attempt < 30; ++attempt) {
+        const auto pos = position_right_of_desktop(enumerate_monitors(false), mon->gdi_name);
+        if (set_monitor_mode(mon->gdi_name, mode.width, mode.height, mode.refresh_hz, pos, attempt < 29) ||
+            // Refresh rate might not be offered; accept the driver's choice.
+            set_monitor_mode(mon->gdi_name, mode.width, mode.height, 0, pos, attempt < 29))
+            return wait_for_slot(slot, true, 1000);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        if (auto fresh = wait_for_slot(slot, true, 500)) mon = fresh;
     }
-    return wait_for_slot(slot, true, 1000);
+    DM_LOGE("Virtual monitor %zu does not accept %ux%u", slot, mode.width, mode.height);
+    return std::nullopt;
 }
 
 std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, const DisplayModeSpec& mode) {
@@ -210,6 +227,14 @@ std::optional<MonitorInfo> VirtualDisplayManager::reconfigure(uint32_t session_i
     std::lock_guard lock(mu_);
     for (auto& [slot, s] : slots_) {
         if (s.session_id != session_id) continue;
+        // Capture restarts (another monitor changed) must not touch the display config:
+        // a mode set here would in turn restart every other session's capture.
+        if (s.mode == mode) {
+            auto mons = vdd_monitors();
+            if (slot < mons.size() && mons[slot].active && mons[slot].rect.w == static_cast<int32_t>(mode.width) &&
+                mons[slot].rect.h == static_cast<int32_t>(mode.height))
+                return mons[slot];
+        }
         if (std::find(known_modes_.begin(), known_modes_.end(), mode) == known_modes_.end()) {
             known_modes_.push_back(mode);
             if (!provider_->configure(provider_->monitor_count(), known_modes_)) return std::nullopt;

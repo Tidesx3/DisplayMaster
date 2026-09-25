@@ -14,3 +14,4 @@ android/**/.cxx/
 windows/ui/**/bin/
 windows/ui/**/obj/
 /dist/
+/third_party/vdd/

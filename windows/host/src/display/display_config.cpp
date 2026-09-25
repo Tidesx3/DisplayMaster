@@ -154,7 +154,7 @@ bool set_target_active(const LUID& adapter, uint32_t target_id, bool active) {
 }
 
 bool set_monitor_mode(const std::wstring& gdi_name, uint32_t width, uint32_t height, uint32_t refresh_hz,
-                      std::optional<PointI> position) {
+                      std::optional<PointI> position, bool quiet) {
     DEVMODEW dm{};
     dm.dmSize = sizeof dm;
     dm.dmPelsWidth = width;
@@ -170,6 +170,7 @@ bool set_monitor_mode(const std::wstring& gdi_name, uint32_t width, uint32_t hei
     }
     LONG r = ChangeDisplaySettingsExW(gdi_name.c_str(), &dm, nullptr, CDS_UPDATEREGISTRY | CDS_NORESET, nullptr);
     if (r != DISP_CHANGE_SUCCESSFUL) {
+        if (quiet) return false;
         DM_LOGE("ChangeDisplaySettingsEx(%s, %ux%u@%u) failed: %ld", to_utf8(gdi_name).c_str(), width, height,
                 refresh_hz, r);
         return false;

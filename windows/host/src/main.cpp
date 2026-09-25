@@ -16,6 +16,10 @@
 //     -v                        verbose logging
 //   Diagnostics:
 //     --list-monitors           print monitors (incl. virtual) and exit
+//     --set-monitor <target> on|off   attach/detach a monitor
+//   Setup (elevated, used by the installer):
+//     --install-vdd <dir>       install the virtual display driver from <dir>\MttVDD.inf
+//     --uninstall-vdd           remove the virtual display driver
 //     --probe-encoders          encode a test frame on every GPU with every backend/codec
 //     --selftest <seconds> [--out file]
 //                               capture+encode the primary monitor without a client,
@@ -28,6 +32,8 @@
 #include "core/log.h"
 #include "core/win.h"
 #include "diagnostics.h"
+#include "display/display_config.h"
+#include "setup/vdd_setup.h"
 #include "session/host.h"
 #include "transport/connection.h"
 
@@ -71,6 +77,8 @@ int wmain(int argc, wchar_t** argv) {
     int selftest_seconds = 0;
     std::string selftest_out;
     bool list = false;
+    std::wstring install_vdd_dir;
+    bool uninstall_vdd = false;
     bool probe = false;
 
     for (int i = 1; i < argc; ++i) {
@@ -104,6 +112,18 @@ int wmain(int argc, wchar_t** argv) {
             log_file = to_wide(next());
         } else if (a == "-v") {
             level = log::Level::Debug;
+        } else if (a == "--install-vdd") {
+            install_vdd_dir = to_wide(next());
+        } else if (a == "--uninstall-vdd") {
+            uninstall_vdd = true;
+        } else if (a == "--set-monitor") {
+            // Attach/detach a monitor by target id (see --list-monitors).
+            const auto target = static_cast<uint32_t>(std::stoul(next()));
+            const bool on = next() == "on";
+            for (const auto& m : enumerate_monitors(true))
+                if (m.target_id == target) return set_target_active(m.adapter_luid, target, on) ? 0 : 1;
+            fprintf(stderr, "No monitor with target id %u\n", target);
+            return 2;
         } else if (a == "--list-monitors") {
             list = true;
         } else if (a == "--probe-encoders") {
@@ -119,6 +139,8 @@ int wmain(int argc, wchar_t** argv) {
     }
     log::init(log_file, level);
 
+    if (!install_vdd_dir.empty()) return setup::install_vdd(install_vdd_dir);
+    if (uninstall_vdd) return setup::uninstall_vdd();
     if (list) return list_monitors();
     if (probe) return probe_encoders();
     if (selftest_seconds > 0) return selftest(selftest_seconds, selftest_out, opts);

@@ -40,8 +40,9 @@ std::optional<MonitorInfo> find_primary_monitor();
 bool set_target_active(const LUID& adapter, uint32_t target_id, bool active);
 
 // Set resolution / refresh / desktop position of an active monitor.
+// `quiet`: don't log failures (caller retries).
 bool set_monitor_mode(const std::wstring& gdi_name, uint32_t width, uint32_t height, uint32_t refresh_hz,
-                      std::optional<PointI> position);
+                      std::optional<PointI> position, bool quiet = false);
 
 // Place a new monitor of the given width to the right of all current monitors,
 // top-aligned with the primary.

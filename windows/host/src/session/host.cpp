@@ -90,7 +90,7 @@ bool Host::start_listening() {
 }
 
 bool Host::start() {
-    vdm_.detach_unused();
+    vdm_.prepare(2);  // two devices can extend without a driver reload
     if (!start_listening()) return false;
     update_advertising();
     if (opts_.adb) adb_.start(opts_.port, opts_.adb_auto_launch);

@@ -40,7 +40,7 @@ public:
 // Controlled via \\.\pipe\MTTVirtualDisplayPipe and C:\VirtualDisplayDriver\vdd_settings.xml.
 class MttVddProvider : public IVirtualDisplayProvider {
 public:
-    explicit MttVddProvider(std::wstring settings_path = L"C:\\VirtualDisplayDriver\\vdd_settings.xml");
+    explicit MttVddProvider(std::wstring settings_path = {});  // default: driver's VDDPATH\vdd_settings.xml
     const char* name() const override { return "MTT VDD"; }
     bool available() override;
     uint32_t monitor_count() override;
@@ -63,8 +63,9 @@ public:
 
     bool available() const { return available_; }
 
-    // Detach every virtual monitor nobody uses (e.g. left over after a crash).
-    void detach_unused();
+    // Startup: make sure the driver has at least `min_slots` monitors (one reload, now
+    // rather than mid-stream), then detach every virtual monitor nobody uses.
+    void prepare(uint32_t min_slots);
 
     // Give `session_id` a virtual monitor with the requested mode, placed to the
     // right of the desktop. Returns the monitor as it now appears.
