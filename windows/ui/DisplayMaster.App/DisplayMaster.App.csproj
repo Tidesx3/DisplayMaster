@@ -14,6 +14,8 @@
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
     <SelfContained>true</SelfContained>
+    <!-- Needed so `dotnet publish` produces DisplayMaster.pri (compiled XAML) for an unpackaged app. -->
+    <EnableMsixTooling>true</EnableMsixTooling>
     <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

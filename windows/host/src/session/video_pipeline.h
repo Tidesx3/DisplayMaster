@@ -34,6 +34,8 @@ public:
     Step step(uint32_t timeout_ms, bool force_keyframe, EncodedPacket& out);
 
     bool set_bitrate(uint32_t kbps);
+    // GPU work of the last Frame step (copy, convert, encode), excluding the wait for a change.
+    uint64_t last_work_us() const { return last_work_us_; }
 
     proto::Codec codec() const { return codec_; }
     uint32_t video_width() const { return video_w_; }
@@ -54,6 +56,7 @@ private:
     ComPtr<ID3D11Texture2D> frame_;  // this session's copy of the composed desktop
     ComPtr<ID3D11Texture2D> nv12_;
     bool have_frame_ = false;
+    uint64_t last_work_us_ = 0;
     proto::Codec codec_ = proto::Codec::HEVC;
     uint32_t video_w_ = 0, video_h_ = 0, fps_ = 60, bitrate_kbps_ = 0;
     RectF content_;

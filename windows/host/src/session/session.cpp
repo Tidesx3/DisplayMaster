@@ -353,7 +353,7 @@ void Session::video_loop() {
                 frame.data = std::move(pkt.data);
                 stats_bytes += frame.data.size();
                 if (!send(frame)) running_ = false;
-                stats_work_us += now_us() - start;
+                stats_work_us += pipe.last_work_us();
                 ++stats_frames;
                 break;
             case VideoPipeline::Step::Idle:
@@ -370,7 +370,7 @@ void Session::video_loop() {
         if (elapsed >= 1'000'000) {
             const double fps = stats_frames * 1e6 / elapsed, mbps = stats_bytes * 8.0 / elapsed;
             const double work_ms = stats_frames ? stats_work_us / 1000.0 / stats_frames : 0.0;
-            DM_LOGD("Session %u: sent %.1f fps, %.1f Mbps, capture+encode+send avg %.2f ms", id_, fps, mbps, work_ms);
+            DM_LOGD("Session %u: sent %.1f fps, %.1f Mbps, convert+encode avg %.2f ms", id_, fps, mbps, work_ms);
             {
                 std::lock_guard lock(status_mu_);
                 status_.sent_fps = fps;

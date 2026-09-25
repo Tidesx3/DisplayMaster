@@ -12,7 +12,7 @@
 //     --no-adb                  don't manage adb reverse
 //     --no-launch               don't auto-start the app on USB connect
 //     --no-input                log input from devices instead of injecting it
-//     --log <file>              also log to a file
+//     --log <file>|auto         also log to a file (auto: %LOCALAPPDATA%\DisplayMaster\host.log)
 //     -v                        verbose logging
 //   Diagnostics:
 //     --list-monitors           print monitors (incl. virtual) and exit
@@ -29,6 +29,7 @@
 #include <cstdio>
 #include <string>
 
+#include "core/config.h"
 #include "core/log.h"
 #include "core/win.h"
 #include "diagnostics.h"
@@ -109,7 +110,9 @@ int wmain(int argc, wchar_t** argv) {
         } else if (a == "--no-launch") {
             opts.adb_auto_launch = false;
         } else if (a == "--log") {
-            log_file = to_wide(next());
+            // "auto": %LOCALAPPDATA%\DisplayMaster\host.log of whoever runs the engine.
+            const auto v = next();
+            log_file = v == "auto" ? (Config::default_path().parent_path() / L"host.log").wstring() : to_wide(v);
         } else if (a == "-v") {
             level = log::Level::Debug;
         } else if (a == "--install-vdd") {

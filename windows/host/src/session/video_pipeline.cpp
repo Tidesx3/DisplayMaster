@@ -58,7 +58,9 @@ bool VideoPipeline::init(const PipelineParams& p) {
 }
 
 VideoPipeline::Step VideoPipeline::step(uint32_t timeout_ms, bool force_keyframe, EncodedPacket& out) {
-    switch (capture_->next(seen_version_, timeout_ms, frame_.Get())) {
+    const auto result = capture_->next(seen_version_, timeout_ms, frame_.Get());
+    const uint64_t work_start = now_us();
+    switch (result) {
         case SharedCapture::Result::Frame:
             if (!converter_.convert(frame_.Get(), nv12_.Get())) return Step::Error;
             have_frame_ = true;
@@ -68,7 +70,9 @@ VideoPipeline::Step VideoPipeline::step(uint32_t timeout_ms, bool force_keyframe
             break;  // re-encode the last frame as a keyframe
         case SharedCapture::Result::Lost: return Step::Lost;
     }
-    return encoder_->encode(nv12_.Get(), force_keyframe, out) ? Step::Frame : Step::Error;
+    const bool ok = encoder_->encode(nv12_.Get(), force_keyframe, out);
+    last_work_us_ = now_us() - work_start;
+    return ok ? Step::Frame : Step::Error;
 }
 
 bool VideoPipeline::set_bitrate(uint32_t kbps) {

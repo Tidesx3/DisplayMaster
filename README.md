@@ -56,17 +56,29 @@ gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
 ```
 minSdk 24 (Android 7). Native libraries are 16 KB page aligned.
 
+## Installing (Windows)
+
+Download or build **`DisplayMaster-Setup-<version>.exe`** and run it. One installer contains
+everything: the app, the engine, `adb`, the Android app (installed automatically on plugged-in
+devices) and the signed [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
+for Extend mode. Options: *virtual display driver*, *start at sign-in*, *allow private Wi-Fi networks*.
+Windows may ask once to trust the driver publisher (SignPath Foundation).
+
+* Unattended, e.g. on other PCs: `DisplayMaster-Setup-0.1.0.exe /VERYSILENT /TASKS="vdd,autostart,firewall"`
+* Uninstall from *Settings → Apps* (or `unins000.exe /VERYSILENT`). It removes the engine task,
+  firewall rule and autostart; the driver is removed only if the installer added it (you're asked).
+* Requires Windows 10 1809+ x64.
+
+What it sets up: the engine runs **elevated at sign-in** through a scheduled task
+(`\DisplayMaster\Engine`), so pen/touch reach admin apps and there's no UAC prompt later; the app
+starts in the tray; the firewall rule allows the engine on *Private* networks only.
+
 ## Using it
 
-1. **Virtual display driver (for Extend mode).** Install the signed, open-source
-   [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver/releases)
-   (MIT). Without it DisplayMaster falls back to mirroring the main screen.
-2. Start **DisplayMaster** on the PC (it starts the engine). For pen/touch input into
-   admin windows, use *Restart as administrator* on the Connection page.
-3. **USB:** enable *USB debugging* on the device and plug it in. The PC sets up `adb reverse`
-   and launches the app, which connects by itself. (`adb` from Android platform-tools must be
-   installed or bundled next to the engine.)
-4. **Wi-Fi:** turn on *Wi-Fi connections* in the Connection page. PCs show up automatically in
+1. Open **DisplayMaster** (Start menu or tray).
+2. **USB:** enable *USB debugging* on the device (Developer options) and plug it in. The PC installs
+   and opens the app on the device, which connects by itself.
+3. **Wi-Fi:** turn on *Wi-Fi connections* in the Connection page. PCs show up automatically in
    the app under *On this network* (mDNS), or type the address shown on the PC. The first time,
    the PC asks you to **allow** the device; allowed devices are remembered (and can be forgotten).
 
@@ -87,20 +99,20 @@ Other flags: `--mode extend|mirror`, `--codec h264|hevc|av1`, `--encoder nvenc|a
 
 | Feature | Status |
 |---|---|
-| Extend (virtual monitor per device) | ✅ implemented via VDD; needs the driver installed |
+| Extend (virtual monitor per device) | ✅ verified, incl. two devices at once |
 | Mirror (letterboxed, no GPU clone support needed) | ✅ verified end-to-end |
 | USB via ADB: auto `adb reverse`, auto-install + auto-launch of the app | ✅ verified with the packaged build |
 | Wi-Fi (TCP) + mDNS discovery + device approval (remembered, forgettable) | ✅ verified |
 | Hardware encode: NVENC / AMF (H.264, HEVC, AV1*) | ✅ verified (*AV1 on RTX 40 / RDNA3 like the G14) |
 | Mouse cursor composited into the stream | ✅ verified (GPU, incl. inverting cursors) |
 | 120 Hz, start-to-start frame pacing | ✅ |
-| Several devices at once (one shared capture per monitor) | ✅ verified with 5 simulated devices; extend-mode multi-monitor needs VDD |
+| Several devices at once (one shared capture per monitor) | ✅ verified (5 mirroring, 2 extending) |
 | Pen: pressure, tilt, hover, barrel, eraser (Windows Ink) | ✅ implemented; message flow verified, injection needs a real pen device |
 | Pressure curve (dead zone, full-pressure point, feel) with live preview | ✅ |
 | Multi-touch, mouse-emulation and trackpad modes, palm rejection | ✅ |
 | Hardware keyboard (scancodes: correct on AZERTY/QWERTZ) + soft keyboard | ✅ |
 | Rotation / Fold posture → virtual monitor resize | ✅ implemented |
-| Installer, elevated engine at logon, tray autostart, firewall rule | ✅ scripts (`tools/package.ps1`, `install.ps1`) |
+| Installer (setup.exe incl. driver), elevated engine at sign-in, autostart, firewall, clean uninstall | ✅ verified install / upgrade / uninstall |
 | Zero-setup USB (AOA, no USB debugging) | ⏳ planned (M5) |
 | UDP video with FEC for Wi-Fi, TLS | ⏳ planned (M4 / backlog) |
 | Wintab driver, pen button remapping | ⏳ planned (M7) |
@@ -116,8 +128,8 @@ engine and checks handshake, keyframes, bitstream format and keyframe-on-request
 
 ### Packaging
 ```
-powershell -ExecutionPolicy Bypass -File tools\package.ps1     # -> dist\DisplayMaster
-powershell -ExecutionPolicy Bypass -File dist\DisplayMaster\install.ps1
+powershell -ExecutionPolicy Bypass -File tools\package.ps1 -Version 0.1.0
+# -> dist\DisplayMaster-Setup-0.1.0.exe   (needs Inno Setup 7: winget install JrSoftware.InnoSetup)
 ```
 
 ## Hardware notes
