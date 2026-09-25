@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="DisplayMaster.Views.DevicesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:DisplayMaster.Views"
+    xmlns:vm="using:DisplayMaster.ViewModels">
+
+    <ScrollViewer>
+        <StackPanel MaxWidth="1040" Padding="40,28,40,40" Spacing="16">
+            <!-- Header -->
+            <StackPanel Spacing="2">
+                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Devices" />
+                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.DeviceCountText, Mode=OneWay}" />
+            </StackPanel>
+
+            <!-- Setup hints: each explains the problem and offers the fix. -->
+            <InfoBar
+                Title="DisplayMaster engine isn't running"
+                Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.HostReachable), Mode=OneWay}"
+                IsClosable="False"
+                IsOpen="{x:Bind local:Bind.Not(ViewModel.HostReachable), Mode=OneWay}"
+                Message="Starting it now… If this persists, reinstall DisplayMaster."
+                Severity="Error" />
+            <InfoBar
+                Title="Accept USB debugging on your device"
+                Visibility="{x:Bind local:Bind.VisibleIf(ViewModel.UsbPromptPending), Mode=OneWay}"
+                IsClosable="False"
+                IsOpen="{x:Bind ViewModel.UsbPromptPending, Mode=OneWay}"
+                Message="Unlock the tablet or phone and tap Allow on the 'Allow USB debugging?' prompt."
+                Severity="Informational" />
+            <InfoBar
+                Title="Extend mode needs the virtual display driver"
+                Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.VddInstalled), Mode=OneWay}"
+                IsClosable="True"
+                IsOpen="{x:Bind local:Bind.Not(ViewModel.VddInstalled), Mode=OneWay}"
+                Message="Until it's installed, devices mirror your main screen."
+                Severity="Warning">
+                <InfoBar.ActionButton>
+                    <HyperlinkButton Content="How to install" NavigateUri="https://github.com/VirtualDrivers/Virtual-Display-Driver/releases" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+            <InfoBar
+                Title="Running without administrator rights"
+                Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.Elevated), Mode=OneWay}"
+                IsClosable="True"
+                IsOpen="{x:Bind local:Bind.Not(ViewModel.Elevated), Mode=OneWay}"
+                Message="Pen and touch can't reach apps running as administrator, and display settings may be read-only."
+                Severity="Informational">
+                <InfoBar.ActionButton>
+                    <Button Command="{x:Bind ViewModel.RestartAsAdminCommand}" Content="Restart as administrator" />
+                </InfoBar.ActionButton>
+            </InfoBar>
+
+            <!-- Empty state -->
+            <Border Style="{StaticResource CardStyle}" Visibility="{x:Bind ViewModel.NoDevices, Mode=OneWay}">
+                <Grid ColumnSpacing="40" RowSpacing="24">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="20">
+                        <Image Width="64" Height="64" Source="ms-appx:///Assets/Logo.png" />
+                        <StackPanel VerticalAlignment="Center" Spacing="4">
+                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Connect a tablet or phone" />
+                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Install DisplayMaster on the Android device, then pick a way to connect." TextWrapping="Wrap" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xECF0;" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="USB (fastest)" />
+                        </StackPanel>
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                            <Run Text="1. Turn on USB debugging in Developer options." /><LineBreak />
+                            <Run Text="2. Plug the device into this PC." /><LineBreak />
+                            <Run Text="3. That's it: the app opens and connects by itself." />
+                        </TextBlock>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <FontIcon FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE701;" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Wi-Fi" />
+                        </StackPanel>
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                            <Run Text="1. Allow Wi-Fi connections on the Connection page." /><LineBreak />
+                            <Run Text="2. In the app, enter this PC's address:" />
+                        </TextBlock>
+                        <TextBlock
+                            FontFamily="Cascadia Mono, Consolas"
+                            IsTextSelectionEnabled="True"
+                            Text="{x:Bind ViewModel.AddressesText, Mode=OneWay}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Connected devices -->
+            <ItemsRepeater ItemsSource="{x:Bind ViewModel.Devices}">
+                <ItemsRepeater.Layout>
+                    <StackLayout Spacing="12" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DeviceViewModel">
+                        <Border Style="{StaticResource CardStyle}">
+                            <Grid ColumnSpacing="20" RowSpacing="18">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <!-- Device glyph on the brand gradient -->
+                                <Border Width="56" Height="56" Background="{StaticResource BrandGradientBrush}" CornerRadius="16">
+                                    <FontIcon FontSize="26" Foreground="White" Glyph="{x:Bind DeviceGlyph, Mode=OneWay}" />
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="6">
+                                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind Name, Mode=OneWay}" TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <Border Style="{StaticResource PillStyle}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <Ellipse Width="8" Height="8" Fill="{StaticResource ConnectedBrush}" VerticalAlignment="Center" />
+                                                <FontIcon FontSize="12" Glyph="{x:Bind TransportGlyph, Mode=OneWay}" />
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind TransportText, Mode=OneWay}" />
+                                            </StackPanel>
+                                        </Border>
+                                        <Border Style="{StaticResource PillStyle}">
+                                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ModeText, Mode=OneWay}" />
+                                        </Border>
+                                        <Border Style="{StaticResource PillStyle}" Visibility="{x:Bind HasPen, Mode=OneWay}">
+                                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                                <FontIcon FontSize="12" Foreground="{StaticResource PenBrush}" Glyph="&#xEDC6;" />
+                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="Pen" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}">
+                                        <Run Text="{x:Bind Model, Mode=OneWay}" />
+                                        <Run Text="  ·  " />
+                                        <Run Text="{x:Bind VideoText, Mode=OneWay}" />
+                                    </TextBlock>
+                                </StackPanel>
+
+                                <Button
+                                    Grid.Column="2"
+                                    VerticalAlignment="Top"
+                                    Click="Disconnect_Click"
+                                    Tag="{x:Bind}">
+                                    <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <FontIcon FontSize="14" Glyph="&#xE8CD;" />
+                                        <TextBlock Text="Disconnect" />
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- Live stats -->
+                                <Grid Grid.Row="1" Grid.ColumnSpan="3" ColumnSpacing="12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind FpsText, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="frames / s" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="1">
+                                        <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind BitrateText, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="Mbit / s" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind EncodeText, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="ms capture + encode" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="3">
+                                        <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind DecodeText, Mode=OneWay}" />
+                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="ms decode on device" />
+                                    </StackPanel>
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="DisplayMaster.Views.ConnectionPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:DisplayMaster.Views"
+    xmlns:services="using:DisplayMaster.Services">
+
+    <ScrollViewer>
+        <StackPanel MaxWidth="1040" Padding="40,28,40,40" Spacing="16">
+            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Connection" />
+
+            <!-- USB -->
+            <Border Style="{StaticResource CardStyle}">
+                <Grid ColumnSpacing="20" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon VerticalAlignment="Top" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xECF0;" />
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="USB" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
+                                   Text="Lowest latency and no network setup. Plug in a device with USB debugging enabled and it connects automatically." />
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
+                            <Run Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Ready over USB: " />
+                            <Run Text="{x:Bind ViewModel.UsbDevicesText, Mode=OneWay}" />
+                        </TextBlock>
+                        <InfoBar
+                            IsClosable="False"
+                            IsOpen="{x:Bind local:Bind.Not(ViewModel.AdbAvailable), Mode=OneWay}"
+                            Message="Android platform-tools (adb) weren't found, so USB connections are off. Reinstall DisplayMaster or install platform-tools."
+                            Severity="Warning" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Wi-Fi -->
+            <Border Style="{StaticResource CardStyle}">
+                <Grid ColumnSpacing="20" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon VerticalAlignment="Top" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE701;" />
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Wi-Fi" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
+                                   Text="Connect without a cable on the same network. Use 5 GHz Wi-Fi for the best experience. Only turn this on for networks you trust." />
+                        <StackPanel Margin="0,6,0,0" Spacing="4" Visibility="{x:Bind ViewModel.WifiEnabled, Mode=OneWay}">
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       Text="Nearby devices find this PC automatically. You can also enter one of these addresses:" TextWrapping="Wrap" />
+                            <TextBlock FontFamily="Cascadia Mono, Consolas" FontSize="16" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.AddressesText, Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel Margin="0,10,0,0" Spacing="6" Visibility="{x:Bind ViewModel.HasTrustedDevices, Mode=OneWay}">
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Allowed devices" />
+                            <ItemsRepeater ItemsSource="{x:Bind ViewModel.TrustedDevices}">
+                                <ItemsRepeater.Layout>
+                                    <StackLayout Spacing="4" />
+                                </ItemsRepeater.Layout>
+                                <ItemsRepeater.ItemTemplate>
+                                    <DataTemplate x:DataType="services:TrustedDevice">
+                                        <Grid Padding="12,6" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="6" ColumnSpacing="12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <FontIcon VerticalAlignment="Center" FontSize="16" Glyph="&#xE70A;" />
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind Name}" />
+                                            <Button Grid.Column="2" Click="Forget_Click" Content="Forget" Tag="{x:Bind}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsRepeater.ItemTemplate>
+                            </ItemsRepeater>
+                        </StackPanel>
+                    </StackPanel>
+                    <ToggleSwitch
+                        Grid.Column="2"
+                        VerticalAlignment="Top"
+                        IsOn="{x:Bind ViewModel.WifiEnabled, Mode=TwoWay}"
+                        OffContent="Off"
+                        OnContent="On" />
+                </Grid>
+            </Border>
+
+            <!-- Engine -->
+            <Border Style="{StaticResource CardStyle}">
+                <Grid ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon VerticalAlignment="Top" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE7F8;" />
+                    <StackPanel Grid.Column="1" Spacing="6">
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Display engine" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
+                            <Run Text="Virtual display driver: " />
+                            <Run Text="{x:Bind local:ConnectionPage.YesNo(ViewModel.VddInstalled, 'installed', 'not installed'), Mode=OneWay}" />
+                            <LineBreak />
+                            <Run Text="Administrator rights: " />
+                            <Run Text="{x:Bind local:ConnectionPage.YesNo(ViewModel.Elevated, 'yes', 'no'), Mode=OneWay}" />
+                            <LineBreak />
+                            <Run Text="Port: " />
+                            <Run Text="{x:Bind ViewModel.Port, Mode=OneWay}" />
+                        </TextBlock>
+                    </StackPanel>
+                    <Button
+                        Grid.Column="2"
+                        VerticalAlignment="Top"
+                        Command="{x:Bind ViewModel.RestartAsAdminCommand}"
+                        Content="Restart as administrator"
+                        Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.Elevated), Mode=OneWay}" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

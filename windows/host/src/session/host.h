@@ -1,0 +1,59 @@
+#pragma once
+
+#include <functional>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <string>
+#include <vector>
+
+#include "core/config.h"
+#include "display/virtual_display.h"
+#include "ipc/control_server.h"
+#include "session/session.h"
+#include "session/approval.h"
+#include "transport/adb.h"
+#include "transport/mdns.h"
+#include "transport/connection.h"
+
+namespace dm {
+
+class Host {
+public:
+    explicit Host(const HostOptions& opts);
+    ~Host();
+    bool start();
+    void stop();
+    // Drops finished sessions; call periodically.
+    void reap();
+    size_t session_count();
+
+    // Control API (JSON in, JSON out); see docs/control-api.md.
+    std::string handle_control(const std::string& request);
+
+    // Called (on a control thread) when the UI asks the engine to exit.
+    std::function<void()> on_shutdown_requested;
+
+private:
+    bool start_listening();
+    void update_advertising();
+    std::string status_json();
+
+    HostOptions opts_;
+    Config config_{Config::default_path()};
+    bool allow_wifi_ = false;
+    VirtualDisplayManager vdm_;
+    TcpServer server_;
+    AdbManager adb_;
+    ControlServer control_;
+    ApprovalBroker approvals_{ApprovalBroker::default_store()};
+    MdnsAdvertiser mdns_;
+    std::mutex mu_;
+    std::map<uint32_t, std::unique_ptr<Session>> sessions_;
+    uint32_t next_id_ = 1;
+};
+
+// Up, non-loopback IPv4 addresses of this PC (shown in the UI for Wi-Fi setup).
+std::vector<std::string> lan_ipv4_addresses();
+
+}  // namespace dm

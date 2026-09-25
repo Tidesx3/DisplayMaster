@@ -1,0 +1,16 @@
+/build/
+/out/
+.vs/
+*.user
+# Android
+android/.gradle/
+android/**/build/
+android/local.properties
+android/.idea/
+android/**/.cxx/
+*.apk
+*.aab
+# .NET
+windows/ui/**/bin/
+windows/ui/**/obj/
+/dist/

@@ -1,0 +1,140 @@
+using CommunityToolkit.Mvvm.Input;
+using DisplayMaster.ViewModels;
+using H.NotifyIcon;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
+
+namespace DisplayMaster;
+
+public partial class App : Application
+{
+    private const string InstanceMutexName = "DisplayMaster.App.SingleInstance";
+    private const string ShowEventName = "DisplayMaster.App.Show";
+
+    private MainWindow? _window;
+    private TaskbarIcon? _tray;
+    private Mutex? _instanceMutex;
+    private EventWaitHandle? _showEvent;
+    private bool _quitting;
+    private readonly Dictionary<int, ContentDialog> _approvalDialogs = new();
+
+    public static MainViewModel ViewModel { get; private set; } = null!;
+
+    public App()
+    {
+        InitializeComponent();
+    }
+
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        // Second launch: ask the running instance to show itself, then exit.
+        _instanceMutex = new Mutex(true, InstanceMutexName, out var first);
+        _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
+        if (!first)
+        {
+            _showEvent.Set();
+            Exit();
+            return;
+        }
+        var dispatcher = DispatcherQueue.GetForCurrentThread();
+        ThreadPool.RegisterWaitForSingleObject(_showEvent, (_, _) => dispatcher.TryEnqueue(ShowWindow), null, -1, false);
+
+        ViewModel = new MainViewModel(dispatcher);
+        _window = new MainWindow();
+        _window.AppWindow.Closing += (_, e) =>
+        {
+            if (_quitting) return;
+            // Closing the window keeps DisplayMaster running in the tray.
+            e.Cancel = true;
+            _window.AppWindow.Hide();
+        };
+        CreateTrayIcon();
+        ViewModel.ApprovalRequested += device => _ = AskApprovalAsync(device);
+        ViewModel.ApprovalResolved += id =>
+        {
+            if (_approvalDialogs.Remove(id, out var dialog)) dialog.Hide();
+        };
+        ViewModel.DevicesChanged += count =>
+        {
+            if (_tray is not null)
+                _tray.ToolTipText = count == 0 ? "DisplayMaster" : $"DisplayMaster – {count} device{(count == 1 ? "" : "s")} connected";
+        };
+
+        // Started at logon with --tray: stay in the notification area.
+        if (!Environment.GetCommandLineArgs().Contains("--tray")) _window.Activate();
+    }
+
+    private void CreateTrayIcon()
+    {
+        var menu = new MenuFlyout();
+        var open = new MenuFlyoutItem { Text = "Open DisplayMaster", Icon = new FontIcon { Glyph = "" } };
+        open.Command = new RelayCommand(ShowWindow);
+        var quit = new MenuFlyoutItem { Text = "Quit", Icon = new FontIcon { Glyph = "" } };
+        quit.Command = new AsyncRelayCommand(QuitAsync);
+        menu.Items.Add(open);
+        menu.Items.Add(new MenuFlyoutSeparator());
+        menu.Items.Add(quit);
+
+        _tray = new TaskbarIcon
+        {
+            ToolTipText = "DisplayMaster",
+            IconSource = new BitmapImage(new Uri(Path.Combine(AppContext.BaseDirectory, "Assets", "TrayIcon.ico"))),
+            ContextFlyout = menu,
+            ContextMenuMode = ContextMenuMode.PopupMenu,
+            NoLeftClickDelay = true,
+            LeftClickCommand = new RelayCommand(ShowWindow),
+        };
+        _tray.ForceCreate(enablesEfficiencyMode: false);
+    }
+
+    /// <summary>"Allow this device?" for unknown Wi-Fi devices (they could otherwise control the PC).</summary>
+    private async Task AskApprovalAsync(Services.PendingDevice device)
+    {
+        ShowWindow();
+        if (_window?.Content?.XamlRoot is not { } root) return;
+        var remember = new CheckBox { Content = "Remember this device", IsChecked = true };
+        var body = new StackPanel { Spacing = 12 };
+        body.Children.Add(new TextBlock
+        {
+            Text = $"{device.Name} ({device.Model}) wants to use this PC as a display over Wi-Fi from {device.Address}. " +
+                   "Allowed devices can see this screen and control the mouse and keyboard.",
+            TextWrapping = TextWrapping.Wrap,
+        });
+        body.Children.Add(remember);
+        var dialog = new ContentDialog
+        {
+            XamlRoot = root,
+            Title = "Allow this device?",
+            Content = body,
+            PrimaryButtonText = "Allow",
+            CloseButtonText = "Deny",
+            DefaultButton = ContentDialogButton.Close,
+        };
+        _approvalDialogs[device.Id] = dialog;
+        var result = await dialog.ShowAsync();
+        // Hidden because the request vanished: nothing to answer.
+        if (!_approvalDialogs.Remove(device.Id)) return;
+        await ViewModel.AnswerApprovalAsync(device.Id, result == ContentDialogResult.Primary, remember.IsChecked == true);
+    }
+
+    private void ShowWindow()
+    {
+        if (_window is null) return;
+        _window.AppWindow.Show();
+        _window.Activate();
+    }
+
+    private async Task QuitAsync()
+    {
+        _quitting = true;
+        // The engine stops with the app, like closing any other display tool.
+        await ViewModel.ShutdownHostAsync();
+        ViewModel.Dispose();
+        _tray?.Dispose();
+        _window?.Close();
+        _instanceMutex?.ReleaseMutex();
+        Exit();
+    }
+}
