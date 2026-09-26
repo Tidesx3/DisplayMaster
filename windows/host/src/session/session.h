@@ -17,6 +17,7 @@
 #include "encode/encoder.h"
 #include "input/input_injector.h"
 #include "transport/connection.h"
+#include "transport/udp_sender.h"
 
 namespace dm {
 
@@ -55,9 +56,11 @@ struct SessionStatus {
     std::string encoder, adapter, monitor;  // monitor: GDI name
     RectI monitor_rect;
     bool has_pen = false;
+    bool udp = false;  // video over UDP (Wi-Fi)
     // Live, updated once per second.
     double sent_fps = 0, mbps = 0, work_ms = 0, client_decode_ms = 0;
     uint32_t client_dropped = 0;
+    uint32_t udp_lost_frames = 0, udp_recovered_shards = 0;  // last stats interval
 };
 
 class Session {
@@ -85,6 +88,8 @@ private:
     bool handle_hello(const proto::Hello& h);
     // Wi-Fi: one handshake message from the device. False ends the session.
     bool handshake_step(const proto::RawMessage& m);
+    // Wi-Fi: move video to UDP if the device offered a port (only over an encrypted connection).
+    void start_udp(uint16_t port);
     void handle(const proto::RawMessage& m);
     bool log_input(const proto::RawMessage& m);
     bool setup_pipeline(class VideoPipeline& pipe);
@@ -112,6 +117,15 @@ private:
     std::mutex send_mu_;
     std::string device_key_;    // hex public key of the device (Wi-Fi)
     std::string pairing_code_;  // shown on both screens for a new pairing
+
+    // Video over UDP (video thread sends; the receive thread can switch it off).
+    std::unique_ptr<UdpSender> udp_;
+    std::atomic<bool> udp_active_{false};
+    // Parity share, adapted to the loss the device reports: up while frames get lost,
+    // back down after a clean stretch.
+    static constexpr int kFecPercent = 20, kFecMax = 100;
+    std::atomic<int> fec_percent_{kFecPercent};
+    int clean_stats_ = 0;  // consecutive stats intervals without losses or repairs
 
     mutable std::mutex mu_;
     proto::Hello hello_;

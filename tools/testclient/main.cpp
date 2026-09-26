@@ -3,9 +3,11 @@
 //
 //   dm_testclient [--host 127.0.0.1] [--port 47800] [--clients N] [--seconds S]
 //                 [--size 1280x800] [--codec h264|hevc|av1] [--mode extend|mirror]
-//                 [--secure] [--key <64 hex digits>]
+//                 [--secure] [--key <64 hex digits>] [--udp [--loss N] [--udp-blocked]]
 //   --secure: encrypted like Wi-Fi (Noise handshake); --key fixes the device key so a
 //   second run is recognized as an already paired device.
+//   --udp (with --secure): video over UDP like Wi-Fi; --loss drops N % of the datagrams at
+//   random (parity must repair most), --udp-blocked drops all (must fall back to TCP).
 //
 // Exit code 0 when every client passed.
 #include <winsock2.h>
@@ -15,12 +17,15 @@
 #include <chrono>
 #include <cstdio>
 #include <memory>
+#include <random>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "dm/noise.h"
 #include "dm/protocol.h"
+#include "dm/udp_video.h"
 
 using namespace dm;
 using Clock = std::chrono::steady_clock;
@@ -37,6 +42,9 @@ struct Options {
     proto::DisplayMode mode = proto::DisplayMode::Mirror;
     bool secure = false;
     std::optional<noise::Key> key;
+    bool udp = false;
+    int loss_percent = 0;
+    bool udp_blocked = false;
 };
 
 struct Result {
@@ -48,6 +56,10 @@ struct Result {
     bool first_is_key = false, annexb_ok = true, keyframe_on_request = false;
     std::string pairing_code;  // secure connections
     bool approval_requested = false;
+    // UDP video
+    bool udp_video = false;   // the host switched video to UDP
+    uint64_t udp_frames = 0, udp_lost = 0, udp_recovered = 0, udp_dropped_by_test = 0;
+    bool fell_back = false;   // no UDP arrived; video moved back to TCP
 };
 
 uint64_t mono_us() {
@@ -120,6 +132,20 @@ Result run_client(const Options& o, int index) {
     }
     auto send_msg = [&](const std::vector<uint8_t>& frame) { return send_all(s, channel ? channel->seal(frame) : frame); };
 
+    // Like the app over Wi-Fi: a UDP port for video, offered in Hello.
+    SOCKET us = INVALID_SOCKET;
+    if (o.udp) {
+        us = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+        sockaddr_in a{};
+        a.sin_family = AF_INET;
+        inet_pton(AF_INET, "0.0.0.0", &a.sin_addr);
+        bind(us, reinterpret_cast<sockaddr*>(&a), sizeof a);
+        int rcvbuf = 8 * 1024 * 1024;
+        setsockopt(us, SOL_SOCKET, SO_RCVBUF, reinterpret_cast<const char*>(&rcvbuf), sizeof rcvbuf);
+        u_long nonblocking = 1;
+        ioctlsocket(us, FIONBIO, &nonblocking);
+    }
+
     proto::Hello hello;
     hello.device_id = "testclient-" + std::to_string(index);
     hello.device_name = "Test client " + std::to_string(index + 1);
@@ -132,6 +158,12 @@ Result run_client(const Options& o, int index) {
     hello.settings.mode = o.mode;
     hello.settings.max_fps = 60;
     hello.settings.preferred_codec = o.codec;
+    if (us != INVALID_SOCKET) {
+        sockaddr_in a{};
+        int len = sizeof a;
+        getsockname(us, reinterpret_cast<sockaddr*>(&a), &len);
+        hello.udp_port = ntohs(a.sin_port);
+    }
     send_msg(proto::encode(hello));
 
     proto::RawMessage outer;
@@ -141,7 +173,97 @@ Result run_client(const Options& o, int index) {
     const auto end = start + std::chrono::seconds(o.seconds);
     auto last_ping = Clock::now() - std::chrono::seconds(1);
 
+    // Like the device's decoder: after a lost frame, skip until a keyframe and ask for one.
+    // Over UDP the first keyframe itself can be lost, so start out waiting for one.
+    bool waiting_for_key = o.udp;
+    uint32_t stats_lost = 0, stats_recovered = 0;
+    auto last_stats = Clock::now();
+    auto last_key_request = Clock::now() - std::chrono::seconds(1);
+    auto ask_keyframe = [&] {
+        if (Clock::now() - last_key_request < std::chrono::milliseconds(200)) return;
+        last_key_request = Clock::now();
+        send_msg(proto::encode(proto::RequestKeyframe{}));
+    };
+    auto on_frame = [&](const proto::VideoFrame& f) {
+        const bool key = f.flags & proto::kFrameKey;
+        if (waiting_for_key && !key) {
+            ask_keyframe();
+            return;
+        }
+        waiting_for_key = false;
+        if (r.frames == 0) r.first_is_key = key;
+        if (key && requested_key && r.frames >= key_requested_at_frame) r.keyframe_on_request = true;
+        if (r.config.codec != proto::Codec::AV1 && !starts_with_start_code(f.data)) r.annexb_ok = false;
+        ++r.frames;
+        r.keyframes += key;
+        r.bytes += f.data.size();
+    };
+
+    std::unique_ptr<udp::Cipher> udp_cipher;
+    udp::FrameAssembler assembler;
+    auto udp_since = Clock::now();  // last valid datagram (or the switch to UDP)
+    std::mt19937 rng(1234 + index);
+    std::vector<uint8_t> dgram(2048), plain;
+
     while (Clock::now() < end) {
+        fd_set rd;
+        FD_ZERO(&rd);
+        FD_SET(s, &rd);
+        if (us != INVALID_SOCKET) FD_SET(us, &rd);
+        timeval tick{0, 20000};
+        select(0, &rd, nullptr, nullptr, &tick);
+        if (us != INVALID_SOCKET && FD_ISSET(us, &rd)) {
+            int n;
+            while ((n = recv(us, reinterpret_cast<char*>(dgram.data()), static_cast<int>(dgram.size()), 0)) > 0) {
+                if (!udp_cipher) continue;
+                if (o.udp_blocked || static_cast<int>(rng() % 100) < o.loss_percent) {
+                    ++r.udp_dropped_by_test;
+                    continue;
+                }
+                uint64_t seq = 0;
+                if (!udp_cipher->open(std::span<const uint8_t>(dgram.data(), static_cast<size_t>(n)), plain, seq)) continue;
+                udp_since = Clock::now();
+                assembler.add(plain, mono_us());
+            }
+        }
+        if (udp_cipher) {
+            proto::VideoFrame f;
+            while (assembler.pop(f, mono_us())) {
+                ++r.udp_frames;
+                on_frame(f);
+            }
+            if (const uint32_t lost = assembler.take_lost()) {
+                r.udp_lost += lost;
+                stats_lost += lost;
+                waiting_for_key = true;
+                ask_keyframe();
+            }
+            const uint32_t recovered = assembler.take_recovered();
+            r.udp_recovered += recovered;
+            stats_recovered += recovered;
+            // Once a second, like the app: the host adapts the parity to these.
+            if (Clock::now() - last_stats > std::chrono::seconds(1)) {
+                last_stats = Clock::now();
+                proto::ClientStats st;
+                st.interval_ms = 1000;
+                st.udp_lost_frames = std::exchange(stats_lost, 0);
+                st.udp_recovered_shards = std::exchange(stats_recovered, 0);
+                send_msg(proto::encode(st));
+            }
+            // Nothing gets through: tell the host to keep video on TCP.
+            if (Clock::now() - udp_since > std::chrono::seconds(2)) {
+                send_msg(proto::encode(proto::UdpFallback{}));
+                udp_cipher.reset();
+                r.fell_back = true;
+            }
+        }
+        if (!FD_ISSET(s, &rd)) {
+            if (Clock::now() - last_ping > std::chrono::milliseconds(500)) {
+                last_ping = Clock::now();
+                send_msg(proto::encode(proto::Ping{mono_us()}));
+            }
+            continue;
+        }
         if (Clock::now() - last_ping > std::chrono::milliseconds(500)) {
             last_ping = Clock::now();
             send_msg(proto::encode(proto::Ping{mono_us()}));
@@ -186,14 +308,17 @@ Result run_client(const Options& o, int index) {
                     }
                     break;
                 case proto::MsgType::VideoFrame:
-                    if (auto f = proto::decode<proto::VideoFrame>(msg.payload)) {
-                        const bool key = f->flags & proto::kFrameKey;
-                        if (r.frames == 0) r.first_is_key = key;
-                        if (key && requested_key && r.frames >= key_requested_at_frame) r.keyframe_on_request = true;
-                        if (r.config.codec != proto::Codec::AV1 && !starts_with_start_code(f->data)) r.annexb_ok = false;
-                        ++r.frames;
-                        r.keyframes += key;
-                        r.bytes += f->data.size();
+                    if (auto f = proto::decode<proto::VideoFrame>(msg.payload)) on_frame(*f);
+                    break;
+                case proto::MsgType::VideoTransport:
+                    if (auto t = proto::decode<proto::VideoTransport>(msg.payload)) {
+                        if (t->udp && us != INVALID_SOCKET) {
+                            udp_cipher = std::make_unique<udp::Cipher>(t->key);
+                            udp_since = Clock::now();
+                            r.udp_video = true;
+                        } else {
+                            udp_cipher.reset();
+                        }
                     }
                     break;
                 case proto::MsgType::Pong:
@@ -210,11 +335,15 @@ Result run_client(const Options& o, int index) {
     }
     send_msg(proto::encode(proto::Bye{"test finished"}));
     closesocket(s);
+    if (us != INVALID_SOCKET) closesocket(us);
 
     if (r.error.empty()) {
         if (!configured) r.error = "no VideoConfig";
         else if (r.frames == 0) r.error = "no frames";
         else if (!r.first_is_key) r.error = "first frame is not a keyframe";
+        else if (o.udp && !r.udp_video) r.error = "host didn't switch video to UDP";
+        else if (o.udp && !o.udp_blocked && r.udp_frames == 0) r.error = "no frames over UDP";
+        else if (o.udp_blocked && !r.fell_back) r.error = "no fallback to TCP";
         else if (!r.annexb_ok) r.error = "bitstream is not Annex B";
         else if (requested_key && !r.keyframe_on_request) r.error = "RequestKeyframe was not answered";
     }
@@ -246,6 +375,12 @@ int main(int argc, char** argv) {
             o.secure = true;
         } else if (a == "--key") {
             o.key = noise::key_from_hex(next());
+        } else if (a == "--udp") {
+            o.udp = true;
+        } else if (a == "--loss") {
+            o.loss_percent = std::stoi(next());
+        } else if (a == "--udp-blocked") {
+            o.udp_blocked = true;
         }
     }
     WSADATA wsa;
@@ -264,6 +399,10 @@ int main(int argc, char** argv) {
                r.ok ? "PASS" : "FAIL", codec, r.config.width, r.config.height, r.frames, r.keyframes,
                r.frames / static_cast<double>(o.seconds), r.bytes * 8.0 / o.seconds / 1e6, r.rtt_ms,
                r.ok ? "" : "  -> ", r.error.c_str());
+        if (r.udp_video)
+            printf("client %zu: UDP video: %llu frames, %llu lost, %llu shards rebuilt, %llu datagrams dropped by the test%s\n",
+                   i + 1, r.udp_frames, r.udp_lost, r.udp_recovered, r.udp_dropped_by_test,
+                   r.fell_back ? ", fell back to TCP" : "");
         if (!r.pairing_code.empty())
             printf("client %zu: encrypted, pairing code %s%s\n", i + 1, r.pairing_code.c_str(),
                    r.approval_requested ? "" : ", already paired");

@@ -154,6 +154,24 @@ void Session::receive_loop() {
     finished_ = true;
 }
 
+void Session::start_udp(uint16_t port) {
+    const std::string& peer = conn_->peer();
+    const std::string ip = peer.substr(0, peer.rfind(':'));
+    proto::VideoTransport t;
+    t.udp = true;
+    t.fec_percent = kFecPercent;
+    noise::random_bytes(t.key.data(), t.key.size());
+    auto sender = std::make_unique<UdpSender>();
+    if (!sender->open(ip, port, t.key)) {
+        DM_LOGW("Session %u: UDP video to %s:%u unavailable - staying on TCP", id_, ip.c_str(), port);
+        return;
+    }
+    udp_ = std::move(sender);
+    send(t);  // sealed: carries the packet key
+    udp_active_ = true;
+    DM_LOGI("Session %u: video over UDP to %s:%u (%d%% parity)", id_, ip.c_str(), port, kFecPercent);
+}
+
 bool Session::handle_hello(const proto::Hello& h) {
     proto::Welcome w;
     wchar_t host[MAX_COMPUTERNAME_LENGTH + 1];
@@ -206,6 +224,12 @@ bool Session::handle_hello(const proto::Hello& h) {
         status_.peer = conn_->peer();
         status_.usb = usb_;
         status_.has_pen = h.input_caps & proto::kCapPen;
+    }
+    // Only over the encrypted channel: the transport message carries the UDP packet key.
+    if (!usb_ && channel_ && h.udp_port) start_udp(h.udp_port);
+    {
+        std::lock_guard lock(status_mu_);
+        status_.udp = udp_active_;
     }
     video_thread_ = std::thread([this] { video_loop(); });
     return true;
@@ -261,6 +285,36 @@ void Session::handle(const proto::RawMessage& m) {
                 std::lock_guard lock(status_mu_);
                 status_.client_decode_ms = s->avg_decode_us / 1000.0;
                 status_.client_dropped = s->frames_dropped;
+                status_.udp_lost_frames = s->udp_lost_frames;
+                status_.udp_recovered_shards = s->udp_recovered_shards;
+                if (udp_active_) {
+                    const int fec = fec_percent_;
+                    int next = fec;
+                    if (s->udp_lost_frames) {
+                        next = std::min(kFecMax, fec + std::max(10, fec / 2));
+                        clean_stats_ = 0;
+                    } else if (s->udp_recovered_shards) {
+                        clean_stats_ = 0;
+                    } else if (++clean_stats_ >= 5 && fec > kFecPercent) {
+                        next = std::max(kFecPercent, fec - 5);
+                        clean_stats_ = 0;
+                    }
+                    if (next != fec) {
+                        fec_percent_ = next;
+                        DM_LOGI("Session %u: UDP lost %u frames, rebuilt %u shards - parity %d%% -> %d%%", id_,
+                                s->udp_lost_frames, s->udp_recovered_shards, fec, next);
+                    }
+                }
+            }
+            break;
+        case MsgType::UdpFallback:
+            if (udp_active_.exchange(false)) {
+                // UDP doesn't get through (router, firewall): back to this connection.
+                DM_LOGW("Session %u: device receives no UDP video - using TCP", id_);
+                send(proto::VideoTransport{});
+                force_keyframe_ = true;
+                std::lock_guard lock(status_mu_);
+                status_.udp = false;
             }
             break;
         case MsgType::Bye: running_ = false; conn_->close(); break;
@@ -379,6 +433,7 @@ bool Session::setup_pipeline(VideoPipeline& pipe) {
     vc.height = pipe.video_height();
     vc.fps = pipe.fps();
     vc.bitrate_kbps = pipe.bitrate_kbps();
+    if (udp_) udp_->set_pace_kbps(std::max(3 * vc.bitrate_kbps, 60000u));  // headroom for keyframes
     vc.content_x = pipe.content().x;
     vc.content_y = pipe.content().y;
     vc.content_w = pipe.content().w;
@@ -448,7 +503,10 @@ void Session::video_loop() {
                 frame.flags = pkt.keyframe ? proto::kFrameKey : 0;
                 frame.data = std::move(pkt.data);
                 stats_bytes += frame.data.size();
-                if (!send(frame)) running_ = false;
+                if (udp_active_)
+                    udp_->send_frame(frame, fec_percent_);
+                else if (!send(frame))
+                    running_ = false;
                 stats_work_us += pipe.last_work_us();
                 ++stats_frames;
                 break;

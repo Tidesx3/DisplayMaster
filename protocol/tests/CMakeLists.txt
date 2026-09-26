@@ -6,7 +6,7 @@ set(gtest_force_shared_crt OFF CACHE BOOL "" FORCE)  # static CRT, like the rest
 set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(dm_protocol_tests protocol_test.cpp input_math_test.cpp noise_test.cpp)
+add_executable(dm_protocol_tests protocol_test.cpp input_math_test.cpp noise_test.cpp udp_video_test.cpp)
 target_link_libraries(dm_protocol_tests PRIVATE dm_protocol GTest::gtest_main)
 include(GoogleTest)
 gtest_discover_tests(dm_protocol_tests)

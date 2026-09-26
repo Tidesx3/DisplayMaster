@@ -76,6 +76,18 @@ try {
         $after = @(Select-String -Path $slog -Pattern 'approved pairing code').Count
         if ($after -ne $before) { throw 'engine approved again' }
     }
+    Check 'Wi-Fi: video over UDP' {
+        $r = Run-Client "--port $SecurePort --clients 1 --seconds 3 --secure --key $key --udp"
+        if ($r.Code) { throw 'client failed' }
+    }
+    Check 'Wi-Fi: UDP with 10 % packet loss (parity repairs, keyframes recover)' {
+        $r = Run-Client "--port $SecurePort --clients 1 --seconds 5 --secure --key $key --udp --loss 10"
+        if ($r.Code) { throw 'client failed' }
+    }
+    Check 'Wi-Fi: UDP blocked -> falls back to TCP' {
+        $r = Run-Client "--port $SecurePort --clients 1 --seconds 5 --secure --key $key --udp --udp-blocked"
+        if ($r.Code) { throw 'client failed' }
+    }
     Check 'Wi-Fi: app without encryption is told to update' {
         $r = Run-Client "--port $SecurePort --clients 1 --seconds 2"
         if (-not $r.Code) { throw 'plain connection was accepted' }

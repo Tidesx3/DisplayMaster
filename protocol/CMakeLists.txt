@@ -9,7 +9,7 @@ else()
   set_source_files_properties(${DM_MONOCYPHER}/monocypher.c PROPERTIES COMPILE_OPTIONS "-w")
 endif()
 
-add_library(dm_protocol STATIC src/protocol.cpp src/noise.cpp ${DM_MONOCYPHER}/monocypher.c)
+add_library(dm_protocol STATIC src/protocol.cpp src/noise.cpp src/udp_video.cpp ${DM_MONOCYPHER}/monocypher.c)
 target_include_directories(dm_protocol PUBLIC include ${DM_MONOCYPHER})
 if(WIN32)
   target_link_libraries(dm_protocol PUBLIC bcrypt)

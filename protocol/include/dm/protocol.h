@@ -6,6 +6,7 @@
 // video surface the client displays, so the host owns all pixel mapping.
 #pragma once
 
+#include <array>
 #include <cstdint>
 #include <optional>
 #include <span>
@@ -35,6 +36,8 @@ enum class MsgType : uint8_t {
     VideoFrame = 12,       // host -> client: one encoded access unit (Annex B / OBU)
     RequestKeyframe = 13,  // client -> host: decoder lost sync
     ClientSettings = 14,   // client -> host: user changed mode/quality on the device
+    VideoTransport = 15,   // host -> client: video moves to UDP (Wi-Fi) or back to this connection
+    UdpFallback = 16,      // client -> host: no UDP video arrives here, keep it on this connection
 
     Touch = 20,  // client -> host
     Pen = 21,
@@ -126,6 +129,7 @@ struct Hello {
     Transport transport = Transport::Unknown;
     ClientSettings settings;  // initial preferences, so the first stream is already right
     uint8_t flags = 0;        // HelloFlags; optional trailing field (older apps omit it)
+    uint16_t udp_port = 0;    // Wi-Fi: the device's UDP port for video (0: none); trailing too
 
     void write(ByteWriter& w) const;
     bool read(ByteReader& r);
@@ -289,12 +293,33 @@ struct Key {
     bool read(ByteReader& r);
 };
 
+// Video over UDP (dm/udp_video.h). Sent inside the encrypted control connection, since it
+// carries the packet key.
+struct VideoTransport {
+    static constexpr MsgType kType = MsgType::VideoTransport;
+    bool udp = false;           // false: frames come on this connection again
+    std::array<uint8_t, 32> key{};
+    uint8_t fec_percent = 20;   // parity shards per data shard
+
+    void write(ByteWriter& w) const;
+    bool read(ByteReader& r);
+};
+
+struct UdpFallback {
+    static constexpr MsgType kType = MsgType::UdpFallback;
+    void write(ByteWriter&) const {}
+    bool read(ByteReader&) { return true; }
+};
+
 struct ClientStats {
     static constexpr MsgType kType = MsgType::ClientStats;
     uint32_t frames_decoded = 0;  // since last stats message
     uint32_t frames_dropped = 0;
     uint32_t avg_decode_us = 0;
     uint32_t interval_ms = 0;
+    // UDP video (trailing, optional): frames lost for good, data shards rebuilt from parity.
+    uint32_t udp_lost_frames = 0;
+    uint32_t udp_recovered_shards = 0;
 
     void write(ByteWriter& w) const;
     bool read(ByteReader& r);

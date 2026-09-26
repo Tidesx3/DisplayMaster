@@ -15,6 +15,7 @@ add_library(dm_host_core STATIC
   src/transport/connection.cpp
   src/transport/adb.cpp
   src/transport/apk_server.cpp
+  src/transport/udp_sender.cpp
   src/transport/mdns.cpp
   src/input/input_injector.cpp
   src/session/video_pipeline.cpp

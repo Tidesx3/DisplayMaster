@@ -235,3 +235,49 @@ TEST(FrameParser, OversizedLengthIsAnError) {
     EXPECT_FALSE(parser.next(raw));
     EXPECT_TRUE(parser.error());
 }
+
+TEST(Protocol, HelloTrailingFieldsAreOptional) {
+    Hello h;
+    h.device_name = "Fold";
+    h.flags = kHelloConfirmPairing;
+    h.udp_port = 50123;
+    auto frame = encode(h);
+    auto got = decode<Hello>(std::span<const uint8_t>(frame).subspan(kHeaderSize));
+    ASSERT_TRUE(got);
+    EXPECT_EQ(got->flags, kHelloConfirmPairing);
+    EXPECT_EQ(got->udp_port, 50123);
+
+    // An app from before these fields ends right after the settings.
+    const auto old = std::span<const uint8_t>(frame).subspan(kHeaderSize, frame.size() - kHeaderSize - 3);
+    got = decode<Hello>(old);
+    ASSERT_TRUE(got);
+    EXPECT_EQ(got->flags, 0);
+    EXPECT_EQ(got->udp_port, 0);
+    EXPECT_EQ(got->device_name, "Fold");
+}
+
+TEST(Protocol, VideoTransportRoundtrip) {
+    VideoTransport t;
+    t.udp = true;
+    for (size_t i = 0; i < t.key.size(); ++i) t.key[i] = static_cast<uint8_t>(i * 7);
+    t.fec_percent = 35;
+    auto frame = encode(t);
+    auto got = decode<VideoTransport>(std::span<const uint8_t>(frame).subspan(kHeaderSize));
+    ASSERT_TRUE(got);
+    EXPECT_TRUE(got->udp);
+    EXPECT_EQ(got->key, t.key);
+    EXPECT_EQ(got->fec_percent, 35);
+}
+
+TEST(Protocol, ClientStatsUdpFieldsAreOptional) {
+    ClientStats s{60, 1, 4000, 1000, 2, 17};
+    auto frame = encode(s);
+    auto got = decode<ClientStats>(std::span<const uint8_t>(frame).subspan(kHeaderSize));
+    ASSERT_TRUE(got);
+    EXPECT_EQ(got->udp_lost_frames, 2u);
+    EXPECT_EQ(got->udp_recovered_shards, 17u);
+    got = decode<ClientStats>(std::span<const uint8_t>(frame).subspan(kHeaderSize, 16));
+    ASSERT_TRUE(got);
+    EXPECT_EQ(got->frames_decoded, 60u);
+    EXPECT_EQ(got->udp_lost_frames, 0u);
+}

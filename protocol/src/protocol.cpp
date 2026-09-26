@@ -39,6 +39,7 @@ void Hello::write(ByteWriter& w) const {
     w.u8(static_cast<uint8_t>(transport));
     settings.write(w);
     w.u8(flags);
+    w.u16(udp_port);
 }
 bool Hello::read(ByteReader& r) {
     magic = r.u32();
@@ -54,6 +55,7 @@ bool Hello::read(ByteReader& r) {
     transport = static_cast<Transport>(r.u8());
     settings.read(r);
     flags = r.remaining() ? r.u8() : 0;
+    udp_port = r.remaining() >= 2 ? r.u16() : 0;
     return r.ok() && magic == kMagic;
 }
 
@@ -238,12 +240,30 @@ void ClientStats::write(ByteWriter& w) const {
     w.u32(frames_dropped);
     w.u32(avg_decode_us);
     w.u32(interval_ms);
+    w.u32(udp_lost_frames);
+    w.u32(udp_recovered_shards);
 }
 bool ClientStats::read(ByteReader& r) {
     frames_decoded = r.u32();
     frames_dropped = r.u32();
     avg_decode_us = r.u32();
     interval_ms = r.u32();
+    if (r.remaining() >= 8) {
+        udp_lost_frames = r.u32();
+        udp_recovered_shards = r.u32();
+    }
+    return r.ok();
+}
+
+void VideoTransport::write(ByteWriter& w) const {
+    w.boolean(udp);
+    w.raw(key.data(), key.size());
+    w.u8(fec_percent);
+}
+bool VideoTransport::read(ByteReader& r) {
+    udp = r.boolean();
+    for (auto& b : key) b = r.u8();
+    fec_percent = r.u8();
     return r.ok();
 }
 
@@ -300,6 +320,8 @@ const char* to_string(MsgType t) {
         case MsgType::ClientStats: return "ClientStats";
         case MsgType::Handshake: return "Handshake";
         case MsgType::Encrypted: return "Encrypted";
+        case MsgType::VideoTransport: return "VideoTransport";
+        case MsgType::UdpFallback: return "UdpFallback";
     }
     return "Unknown";
 }
