@@ -78,6 +78,7 @@ class MainActivity : ComponentActivity() {
                         onConnectNearby = { pc -> connect(pc.address, pc.port, Proto.TRANSPORT_WIFI) },
                         onForget = vm::forgetHost,
                         onCancel = vm::disconnect,
+                        onConfirmPairing = vm::confirmPairing,
                         onDismissError = vm::dismissError,
                         onRetry = vm.lastTarget?.let { (address, port, transport) -> { connect(address, port, transport) } },
                         onSettings = vm::updateSettings,

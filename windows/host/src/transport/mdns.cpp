@@ -1,5 +1,7 @@
 #include "transport/mdns.h"
 
+#include <ws2tcpip.h>
+
 #include "core/log.h"
 #include "core/win.h"
 
@@ -21,7 +23,7 @@ void WINAPI on_deregistered(DWORD, PVOID context, PDNS_SERVICE_INSTANCE instance
 
 }  // namespace
 
-bool MdnsAdvertiser::start(uint16_t port, const std::wstring& pc_name) {
+bool MdnsAdvertiser::start(uint16_t port, const std::wstring& pc_name, const std::string& ipv4) {
     stop();
     instance_name_ = pc_name + L"." + kServiceType;
     host_name_ = pc_name + L".local";
@@ -29,8 +31,10 @@ bool MdnsAdvertiser::start(uint16_t port, const std::wstring& pc_name) {
     const std::wstring version = L"1";
     PCWSTR keys[] = {L"v", L"name"};
     PCWSTR values[] = {version.c_str(), pc_name.c_str()};
-    instance_ = DnsServiceConstructInstance(instance_name_.c_str(), host_name_.c_str(), nullptr, nullptr, port, 0, 0,
-                                            2, keys, values);
+    IP4_ADDRESS addr = 0;  // network byte order
+    const bool have_addr = !ipv4.empty() && inet_pton(AF_INET, ipv4.c_str(), &addr) == 1;
+    instance_ = DnsServiceConstructInstance(instance_name_.c_str(), host_name_.c_str(), have_addr ? &addr : nullptr,
+                                            nullptr, port, 0, 0, 2, keys, values);
     if (!instance_) return false;
     request_ = {};
     request_.Version = DNS_QUERY_REQUEST_VERSION1;

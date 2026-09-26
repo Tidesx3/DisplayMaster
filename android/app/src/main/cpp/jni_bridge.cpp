@@ -51,6 +51,8 @@ public:
         on_state_ = env->GetMethodID(cls, "onNativeState", "(ILjava/lang/String;)V");
         on_config_ = env->GetMethodID(cls, "onNativeVideoConfig", "(IIIIIFFFFI)V");
         on_stats_ = env->GetMethodID(cls, "onNativeStats", "(FFFFI)V");
+        is_known_pc_ = env->GetMethodID(cls, "isNativeKnownPc", "(Ljava/lang/String;)Z");
+        on_pairing_ = env->GetMethodID(cls, "onNativePairing", "(Ljava/lang/String;Ljava/lang/String;)V");
     }
     ~JavaListener() override {
         JniEnv env;
@@ -74,9 +76,25 @@ public:
         env->CallVoidMethod(obj_, on_stats_, s.fps, s.mbps, s.rtt_ms, s.decode_ms, static_cast<jint>(s.dropped));
     }
 
+    bool is_known_pc(const std::string& pc_key) override {
+        JniEnv env;
+        jstring key = env->NewStringUTF(pc_key.c_str());
+        const bool known = env->CallBooleanMethod(obj_, is_known_pc_, key);
+        env->DeleteLocalRef(key);
+        return known;
+    }
+    void on_pairing(const std::string& code, const std::string& pc_key) override {
+        JniEnv env;
+        jstring c = env->NewStringUTF(code.c_str());
+        jstring key = env->NewStringUTF(pc_key.c_str());
+        env->CallVoidMethod(obj_, on_pairing_, c, key);
+        env->DeleteLocalRef(c);
+        env->DeleteLocalRef(key);
+    }
+
 private:
     jobject obj_;
-    jmethodID on_state_, on_config_, on_stats_;
+    jmethodID on_state_, on_config_, on_stats_, is_known_pc_, on_pairing_;
 };
 
 struct Handle {
@@ -113,7 +131,7 @@ JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeDestroy(
 JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeConnect(
     JNIEnv* env, jobject, jlong h, jstring host, jint port, jstring device_id, jstring name, jstring model, jint sdk,
     jint width, jint height, jint dpi, jint refresh_mhz, jint rotation, jint posture, jint codecs, jint input_caps,
-    jint transport, jint mode, jint touch_mode, jint max_fps, jint preferred_codec) {
+    jint transport, jint mode, jint touch_mode, jint max_fps, jint preferred_codec, jbyteArray identity) {
     proto::Hello hello;
     hello.device_id = to_string(env, device_id);
     hello.device_name = to_string(env, name);
@@ -130,7 +148,26 @@ JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeConnect(
     hello.settings.touch_mode = static_cast<proto::TouchMode>(touch_mode);
     hello.settings.max_fps = static_cast<uint32_t>(max_fps);
     hello.settings.preferred_codec = static_cast<proto::Codec>(preferred_codec);
-    client_of(h)->connect(to_string(env, host), static_cast<uint16_t>(port), hello);
+    // This device's long-term key: present means encrypt (always over Wi-Fi).
+    std::optional<noise::Key> key;
+    if (identity && env->GetArrayLength(identity) == static_cast<jsize>(noise::kKeySize)) {
+        key.emplace();
+        env->GetByteArrayRegion(identity, 0, static_cast<jsize>(noise::kKeySize), reinterpret_cast<jbyte*>(key->data()));
+    }
+    client_of(h)->connect(to_string(env, host), static_cast<uint16_t>(port), hello, key);
+}
+
+JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeConfirmPairing(JNIEnv*, jobject, jlong h,
+                                                                                       jboolean codes_match) {
+    client_of(h)->confirm_pairing(codes_match);
+}
+
+// A fresh long-term key for this install (32 bytes from the OS RNG).
+JNIEXPORT jbyteArray JNICALL Java_com_displaymaster_client_NativeClient_nativeGenerateIdentity(JNIEnv* env, jclass) {
+    const auto kp = noise::KeyPair::generate();
+    jbyteArray out = env->NewByteArray(static_cast<jsize>(noise::kKeySize));
+    env->SetByteArrayRegion(out, 0, static_cast<jsize>(noise::kKeySize), reinterpret_cast<const jbyte*>(kp.priv.data()));
+    return out;
 }
 
 JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeDisconnect(JNIEnv*, jobject, jlong h) {

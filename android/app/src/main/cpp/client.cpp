@@ -60,19 +60,25 @@ int connect_tcp(const std::string& host, uint16_t port, std::string& error) {
 
 }  // namespace
 
-void Client::connect(const std::string& host, uint16_t port, const proto::Hello& hello) {
+void Client::connect(const std::string& host, uint16_t port, const proto::Hello& hello,
+                     std::optional<noise::Key> identity) {
     disconnect();
     running_ = true;
-    thread_ = std::thread([this, host, port, hello] { run(host, port, hello); });
+    {
+        std::lock_guard lock(pair_mu_);
+        need_confirmation_ = false;
+        pair_decision_ = -1;
+    }
+    thread_ = std::thread([this, host, port, hello, identity] { run(host, port, hello, identity); });
 }
 
 void Client::disconnect() {
     running_ = false;
+    pair_cv_.notify_all();  // a pending pairing confirmation gives up
+    if (sock_ >= 0) send(proto::Bye{"disconnected on the device"});  // polite goodbye (sealed on Wi-Fi)
     const int fd = sock_.exchange(-1);
     if (fd >= 0) {
-        // Polite goodbye, then unblock the receive thread.
-        const auto bye = proto::encode(proto::Bye{"disconnected on the device"});
-        ::send(fd, bye.data(), bye.size(), MSG_NOSIGNAL);
+        // Unblocks the receive thread.
         shutdown(fd, SHUT_RDWR);
         close(fd);
     }
@@ -80,6 +86,19 @@ void Client::disconnect() {
     std::lock_guard lock(dec_mu_);
     decoder_.release();
     have_config_ = false;
+}
+
+void Client::confirm_pairing(bool codes_match) {
+    std::lock_guard lock(pair_mu_);
+    pair_decision_ = codes_match ? 1 : 0;
+    pair_cv_.notify_all();
+}
+
+bool Client::wait_for_pairing_confirmation() {
+    std::unique_lock lock(pair_mu_);
+    if (!need_confirmation_) return true;
+    pair_cv_.wait(lock, [this] { return pair_decision_ >= 0 || !running_; });
+    return pair_decision_ == 1 && running_;
 }
 
 void Client::set_surface(ANativeWindow* window) {
@@ -106,16 +125,71 @@ void Client::send_raw(const std::vector<uint8_t>& data) {
     const int fd = sock_;
     if (fd < 0) return;
     std::lock_guard lock(send_mu_);
+    const std::vector<uint8_t> sealed = channel_ ? channel_->seal(data) : std::vector<uint8_t>();
+    const std::vector<uint8_t>& out = channel_ ? sealed : data;
     size_t off = 0;
-    while (off < data.size()) {
-        const ssize_t n = ::send(fd, data.data() + off, data.size() - off, MSG_NOSIGNAL);
+    while (off < out.size()) {
+        const ssize_t n = ::send(fd, out.data() + off, out.size() - off, MSG_NOSIGNAL);
         if (n <= 0) return;
         off += static_cast<size_t>(n);
     }
 }
 
-void Client::run(std::string host, uint16_t port, proto::Hello hello) {
+// Noise XX as the initiator (see dm/noise.h). Afterwards channel_ seals and opens frames.
+bool Client::handshake(int fd, const noise::Key& identity, proto::FrameParser& parser, std::string& error) {
+    noise::HandshakeXX hs(noise::HandshakeXX::Role::Initiator, noise::KeyPair::from_private(identity),
+                          noise::prologue());
+    std::vector<uint8_t> out, payload;
+    hs.write_message({}, out);
+    send_raw(noise::handshake_frame(out));
+
+    proto::RawMessage msg;
+    std::vector<uint8_t> buf(64 * 1024);
+    const uint64_t deadline = mono_us() + 10000000;
+    while (!parser.next(msg)) {
+        if (!running_) return false;
+        if (mono_us() > deadline) {
+            error = "The PC didn't answer - update DisplayMaster on the PC";
+            return false;
+        }
+        const ssize_t n = recv(fd, buf.data(), buf.size(), 0);
+        if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) continue;
+        if (n <= 0) {
+            // A PC from before encryption drops the unknown first message.
+            error = "The PC closed the connection - update DisplayMaster on the PC";
+            return false;
+        }
+        parser.feed(buf.data(), static_cast<size_t>(n));
+    }
+    if (msg.header.type != proto::MsgType::Handshake || !hs.read_message(msg.payload, payload)) {
+        error = "Secure connection to the PC failed";
+        return false;
+    }
+    out.clear();
+    hs.write_message({}, out);
+    send_raw(noise::handshake_frame(out));
+
+    pairing_code_ = noise::pairing_code(hs.handshake_hash());
+    const std::string pc_key = noise::to_hex(hs.remote_static());
+    {
+        std::lock_guard lock(send_mu_);
+        channel_ = std::make_unique<noise::SecureChannel>(hs);
+    }
+    if (!listener_->is_known_pc(pc_key)) {
+        // First time with this PC: both screens show the code, the user confirms it here too.
+        {
+            std::lock_guard lock(pair_mu_);
+            need_confirmation_ = true;
+        }
+        listener_->on_pairing(pairing_code_, pc_key);
+    }
+    LOGI("encrypted connection established");
+    return true;
+}
+
+void Client::run(std::string host, uint16_t port, proto::Hello hello, std::optional<noise::Key> identity) {
     sdk_int_ = hello.sdk_int;
+    pairing_code_.clear();  // USB has none; don't show a previous Wi-Fi connection's code
     listener_->on_state(ClientListener::kConnecting, host);
     std::string error;
     const int fd = connect_tcp(host, port, error);
@@ -125,13 +199,19 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello) {
         return;
     }
     sock_ = fd;
-    send(hello);
 
     proto::FrameParser parser;
-    proto::RawMessage msg;
+    proto::RawMessage outer, msg;
     std::vector<uint8_t> buf(256 * 1024);
     bool welcomed = false;
     std::string end_reason = "The PC closed the connection";
+
+    if (identity && !handshake(fd, *identity, parser, end_reason)) running_ = false;
+    {
+        std::lock_guard lock(pair_mu_);
+        if (need_confirmation_) hello.flags |= proto::kHelloConfirmPairing;  // the PC shows its code too
+    }
+    if (running_) send(hello);
     stats_start_us_ = last_ping_us_ = mono_us();
     bytes_ = 0;
 
@@ -144,9 +224,18 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello) {
         if (n <= 0) break;
         bytes_ += static_cast<uint64_t>(n);
         parser.feed(buf.data(), static_cast<size_t>(n));
-        while (parser.next(msg)) {
+        while (running_ && parser.next(outer)) {
+            if (channel_) {
+                if (outer.header.type != proto::MsgType::Encrypted || !channel_->open(outer.payload, msg)) {
+                    end_reason = "Data from the PC failed verification";
+                    running_ = false;
+                    break;
+                }
+            } else {
+                msg = std::move(outer);
+            }
             if (!welcomed && msg.header.type == proto::MsgType::AwaitingApproval) {
-                listener_->on_state(ClientListener::kConnecting, kApprovalPending);
+                listener_->on_state(ClientListener::kConnecting, std::string(kApprovalPending) + pairing_code_);
                 continue;
             }
             if (!welcomed) {
@@ -154,6 +243,12 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello) {
                                                                     : std::nullopt;
                 if (!w || !w->accepted) {
                     end_reason = w ? w->reason : "Unexpected reply from the PC";
+                    running_ = false;
+                    break;
+                }
+                // New PC: no streaming (or input) until the user confirmed the code here too.
+                if (!wait_for_pairing_confirmation()) {
+                    if (running_) end_reason = "Pairing cancelled";
                     running_ = false;
                     break;
                 }
@@ -181,6 +276,10 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello) {
     if (!user_initiated) {
         shutdown(fd, SHUT_RDWR);
         close(fd);
+    }
+    {
+        std::lock_guard lock(send_mu_);
+        channel_.reset();
     }
     {
         std::lock_guard lock(dec_mu_);

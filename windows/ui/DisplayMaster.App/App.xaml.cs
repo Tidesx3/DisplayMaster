@@ -112,6 +112,25 @@ public partial class App : Application
                    "Allowed devices can see this screen and control the mouse and keyboard.",
             TextWrapping = TextWrapping.Wrap,
         });
+        if (!string.IsNullOrEmpty(device.Code))
+        {
+            // Same code on both screens = nobody on the network is sitting in between.
+            body.Children.Add(new TextBlock
+            {
+                Text = "Only allow it if the device shows the same code:",
+                TextWrapping = TextWrapping.Wrap,
+            });
+            body.Children.Add(new TextBlock
+            {
+                Text = device.Code,
+                FontSize = 34,
+                FontWeight = Microsoft.UI.Text.FontWeights.SemiBold,
+                FontFamily = new Microsoft.UI.Xaml.Media.FontFamily("Cascadia Mono, Consolas"),
+                CharacterSpacing = 120,
+                HorizontalAlignment = HorizontalAlignment.Center,
+                IsTextSelectionEnabled = false,
+            });
+        }
         body.Children.Add(remember);
         var dialog = new ContentDialog
         {

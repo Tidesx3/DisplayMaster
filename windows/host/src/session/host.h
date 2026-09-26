@@ -12,6 +12,7 @@
 #include "ipc/control_server.h"
 #include "session/session.h"
 #include "session/approval.h"
+#include "session/identity.h"
 #include "transport/adb.h"
 #include "transport/mdns.h"
 #include "transport/connection.h"
@@ -40,13 +41,14 @@ private:
     std::string status_json();
 
     HostOptions opts_;
-    Config config_{Config::default_path()};
+    Config config_{host_data_dir(opts_) / L"host.ini"};
     bool allow_wifi_ = false;
     VirtualDisplayManager vdm_;
     TcpServer server_;
     AdbManager adb_;
     ControlServer control_;
-    ApprovalBroker approvals_{ApprovalBroker::default_store()};
+    ApprovalBroker approvals_{host_data_dir(opts_) / L"trusted_devices.txt"};
+    const noise::KeyPair identity_ = load_or_create_identity(host_data_dir(opts_) / L"identity.key");
     MdnsAdvertiser mdns_;
     std::mutex mu_;
     std::map<uint32_t, std::unique_ptr<Session>> sessions_;

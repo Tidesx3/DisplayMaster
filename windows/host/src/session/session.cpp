@@ -12,8 +12,14 @@
 namespace dm {
 
 Session::Session(uint32_t id, std::unique_ptr<Connection> conn, const HostOptions& opts, VirtualDisplayManager& vdm,
-                 ApprovalBroker& approvals)
-    : id_(id), conn_(std::move(conn)), opts_(opts), vdm_(vdm), approvals_(approvals) {
+                 ApprovalBroker& approvals, const noise::KeyPair& identity)
+    : id_(id),
+      conn_(std::move(conn)),
+      opts_(opts),
+      usb_(conn_->loopback() && !opts.test_mode),
+      vdm_(vdm),
+      approvals_(approvals),
+      identity_(identity) {
     input_.set_pressure_curve(opts.pen_curve);
 }
 
@@ -48,12 +54,53 @@ void Session::stop() {
     if (recv_thread_.joinable() && recv_thread_.get_id() != std::this_thread::get_id()) recv_thread_.join();
 }
 
+bool Session::send_frame(const std::vector<uint8_t>& frame) {
+    std::lock_guard lock(send_mu_);
+    return conn_->send(channel_ ? channel_->seal(frame) : frame);
+}
+
+bool Session::handshake_step(const proto::RawMessage& m) {
+    if (m.header.type == proto::MsgType::Hello) {
+        // An app from before encryption: tell it why instead of just closing.
+        proto::Welcome w;
+        w.reason = "Update the DisplayMaster app on this device to connect over Wi-Fi";
+        send(w);
+        DM_LOGW("Session %u: device app too old for encrypted Wi-Fi", id_);
+        return false;
+    }
+    std::vector<uint8_t> payload;
+    if (m.header.type != proto::MsgType::Handshake || !handshake_->read_message(m.payload, payload)) {
+        DM_LOGW("Session %u: handshake failed", id_);
+        return false;
+    }
+    if (!handshake_->complete()) {
+        std::vector<uint8_t> reply;
+        return handshake_->write_message({}, reply) && send_frame(noise::handshake_frame(reply));
+    }
+    device_key_ = noise::to_hex(handshake_->remote_static());
+    pairing_code_ = noise::pairing_code(handshake_->handshake_hash());
+    {
+        std::lock_guard lock(send_mu_);
+        channel_ = std::make_unique<noise::SecureChannel>(*handshake_);
+    }
+    handshake_.reset();
+    DM_LOGI("Session %u: encrypted connection established", id_);
+    return true;
+}
+
 void Session::receive_loop() {
     proto::FrameParser parser;
-    proto::RawMessage msg;
+    proto::RawMessage outer, inner;
     std::vector<uint8_t> buf(64 * 1024);
     bool greeted = false;
     bool first = true;
+    // Wi-Fi traffic is encrypted and authenticated. USB (adb, loopback) stays plain unless
+    // the device starts with a handshake anyway.
+    auto begin_handshake = [this] {
+        handshake_ = std::make_unique<noise::HandshakeXX>(noise::HandshakeXX::Role::Responder, identity_,
+                                                          noise::prologue());
+    };
+    if (!usb_) begin_handshake();
     while (running_) {
         const int n = conn_->recv(buf.data(), static_cast<int>(buf.size()));
         if (n <= 0) break;
@@ -65,7 +112,23 @@ void Session::receive_loop() {
             return;
         }
         parser.feed(buf.data(), static_cast<size_t>(n));
-        while (parser.next(msg)) {
+        while (parser.next(outer)) {
+            if (usb_ && !greeted && !handshake_ && !channel_ && outer.header.type == proto::MsgType::Handshake)
+                begin_handshake();
+            if (handshake_) {
+                if (!handshake_step(outer)) {
+                    running_ = false;
+                    break;
+                }
+                continue;
+            }
+            if (channel_ && (outer.header.type != proto::MsgType::Encrypted || !channel_->open(outer.payload, inner))) {
+                // Forged, corrupted or replayed: the stream can't be trusted any more.
+                DM_LOGW("Session %u: message failed authentication", id_);
+                running_ = false;
+                break;
+            }
+            const proto::RawMessage& msg = channel_ ? inner : outer;
             if (!greeted) {
                 auto hello = msg.header.type == proto::MsgType::Hello ? proto::decode<proto::Hello>(msg.payload)
                                                                       : std::nullopt;
@@ -103,11 +166,20 @@ bool Session::handle_hello(const proto::Hello& h) {
         w.reason = "Protocol version mismatch - update the app on both devices";
     } else if (!h.geometry.width_px || !h.geometry.height_px) {
         w.reason = "Invalid display size";
-    } else if (!conn_->loopback() && !approvals_.is_trusted(h.device_id)) {
-        // Unknown device on the network: the user approves it in the DisplayMaster app.
+    } else if (!usb_ && opts_.test_mode &&
+               (!approvals_.is_trusted(device_key_) || (h.flags & proto::kHelloConfirmPairing))) {
+        // Tests can't click Allow; the log line lets them check both sides computed the same code.
         send(proto::AwaitingApproval{});
-        const bool allowed = approvals_.request({id_, h.device_id, h.device_name, h.model, conn_->peer()}, 60000,
-                                                [this] { return running_ && !conn_->peer_closed(); });
+        DM_LOGI("Session %u: test mode approved pairing code %s", id_, pairing_code_.c_str());
+        approvals_.trust(device_key_, h.device_name);
+    } else if (!usb_ &&
+               (!approvals_.is_trusted(device_key_) || (h.flags & proto::kHelloConfirmPairing))) {
+        // Unknown device on the network (or one that doesn't know this PC yet): the user
+        // compares the pairing code on both screens and approves it in the DisplayMaster app.
+        send(proto::AwaitingApproval{});
+        const bool allowed =
+            approvals_.request({id_, device_key_, h.device_name, h.model, conn_->peer(), pairing_code_}, 60000,
+                               [this] { return running_ && !conn_->peer_closed(); });
         if (!allowed) w.reason = "Not approved on the PC";
     }
     w.accepted = w.reason.empty();
@@ -125,14 +197,14 @@ bool Session::handle_hello(const proto::Hello& h) {
     }
     DM_LOGI("Session %u: \"%s\" (%s, Android API %u) %ux%u@%.0fHz via %s", id_, h.device_name.c_str(), h.model.c_str(),
             h.sdk_int, h.geometry.width_px, h.geometry.height_px, h.geometry.refresh_mhz / 1000.0,
-            conn_->loopback() ? "USB" : "Wi-Fi");
+            usb_ ? "USB" : channel_ ? "Wi-Fi (encrypted)" : "Wi-Fi");
     {
         std::lock_guard lock(status_mu_);
         status_.id = id_;
         status_.device_name = h.device_name;
         status_.model = h.model;
         status_.peer = conn_->peer();
-        status_.usb = conn_->loopback();
+        status_.usb = usb_;
         status_.has_pen = h.input_caps & proto::kCapPen;
     }
     video_thread_ = std::thread([this] { video_loop(); });
@@ -260,7 +332,7 @@ bool Session::setup_pipeline(VideoPipeline& pipe) {
     p.codecs = codecs;
     p.fps = fps;
     p.bitrate_kbps = settings.bitrate_kbps ? settings.bitrate_kbps : opts_.bitrate_kbps;
-    p.usb = conn_->loopback();
+    p.usb = usb_;
     p.backend = opts_.backend;
 
     std::optional<MonitorInfo> mon;

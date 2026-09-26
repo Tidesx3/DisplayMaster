@@ -83,18 +83,25 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
         fun onState(state: State, message: String)
         fun onVideoConfig(config: VideoConfig)
         fun onStats(stats: StreamStats)
+        /** Wi-Fi: has this device paired with the PC that has this public key (hex)? */
+        fun isKnownPc(pcKey: String): Boolean
+        /** A PC this device doesn't know: show [code]; answer with [confirmPairing]. */
+        fun onPairing(code: String, pcKey: String)
     }
 
     enum class State { Connecting, Connected, Streaming, Disconnected, Error }
 
     private var handle: Long = nativeCreate()
 
-    fun connect(host: String, port: Int, info: DeviceInfo.Hello, settings: Settings) = nativeConnect(
+    /** [identity]: this device's key; non-null encrypts the connection (always over Wi-Fi). */
+    fun connect(host: String, port: Int, info: DeviceInfo.Hello, settings: Settings, identity: ByteArray?) = nativeConnect(
         handle, host, port, info.deviceId, info.name, info.model, info.sdk,
         info.geometry.width, info.geometry.height, info.geometry.dpi, info.geometry.refreshMhz,
         info.geometry.rotation, info.geometry.posture, info.codecMask, info.inputCaps, info.transport,
-        settings.displayMode.wire, settings.touchMode.wire, settings.maxFps, settings.preferredCodec,
+        settings.displayMode.wire, settings.touchMode.wire, settings.maxFps, settings.preferredCodec, identity,
     )
+
+    fun confirmPairing(codesMatch: Boolean) = nativeConfirmPairing(handle, codesMatch)
 
     fun disconnect() = nativeDisconnect(handle)
     fun setSurface(surface: Surface?) = nativeSetSurface(handle, surface)
@@ -142,14 +149,22 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     private fun onNativeStats(fps: Float, mbps: Float, rttMs: Float, decodeMs: Float, dropped: Int) =
         listener.onStats(StreamStats(fps, mbps, rttMs, decodeMs, dropped))
 
+    @Suppress("unused")
+    private fun isNativeKnownPc(pcKey: String): Boolean = listener.isKnownPc(pcKey)
+
+    @Suppress("unused")
+    private fun onNativePairing(code: String, pcKey: String) = listener.onPairing(code, pcKey)
+
     private external fun nativeCreate(): Long
     private external fun nativeDestroy(handle: Long)
     private external fun nativeConnect(
         handle: Long, host: String, port: Int, deviceId: String, name: String, model: String, sdk: Int,
         width: Int, height: Int, dpi: Int, refreshMhz: Int, rotation: Int, posture: Int,
         codecs: Int, inputCaps: Int, transport: Int, mode: Int, touchMode: Int, maxFps: Int, codec: Int,
+        identity: ByteArray?,
     )
     private external fun nativeDisconnect(handle: Long)
+    private external fun nativeConfirmPairing(handle: Long, codesMatch: Boolean)
     private external fun nativeSetSurface(handle: Long, surface: Surface?)
     private external fun nativeSendPen(
         handle: Long, flags: Int, x: Float, y: Float, pressure: Float, tiltRad: Float, orientationRad: Float, timeUs: Long,
@@ -171,5 +186,9 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
         init {
             System.loadLibrary("dmclient")
         }
+
+        /** A new long-term key (32 bytes) from the OS random generator. */
+        @JvmStatic
+        external fun nativeGenerateIdentity(): ByteArray
     }
 }

@@ -19,6 +19,8 @@ data class UiState(
     val stats: StreamStats? = null,
     val usb: Boolean = false,
     val awaitingApproval: Boolean = false,  // PC is asking its user to allow this device
+    val pairingCode: String = "",           // Wi-Fi: same code on both screens
+    val confirmOnDevice: Boolean = false,   // new PC: the user must confirm the code here too
 )
 
 data class Settings(
@@ -45,6 +47,8 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
 
     val client = NativeClient(this)
     val discovery = PcDiscovery(app)
+    private val pairing = Pairing(app)
+    @Volatile private var pendingPcKey: String? = null
 
     /** Address, port and transport of the last attempt, for "Retry". */
     var lastTarget: Triple<String, Int, Int>? = null
@@ -54,7 +58,16 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
         lastTarget = Triple(address, port, hello.transport)
         val usb = hello.transport == Proto.TRANSPORT_USB_ADB
         _state.value = UiState(phase = Phase.Connecting, target = if (usb) "USB" else address, usb = usb)
-        client.connect(address, port, hello, _settings.value)
+        // Wi-Fi is always encrypted; USB goes through adb's authorized link.
+        client.connect(address, port, hello, _settings.value, if (usb) null else pairing.identity)
+    }
+
+    /** The user compared the code with the PC's. A match pins the PC's key for next time. */
+    fun confirmPairing(codesMatch: Boolean) {
+        if (codesMatch) pendingPcKey?.let(pairing::remember)
+        pendingPcKey = null
+        _state.update { it.copy(confirmOnDevice = false) }
+        client.confirmPairing(codesMatch)
     }
 
     fun disconnect() {
@@ -87,7 +100,9 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
     override fun onState(state: NativeClient.State, message: String) {
         when (state) {
             NativeClient.State.Connecting ->
-                if (message == "approval") _state.update { it.copy(awaitingApproval = true) }
+                if (message.startsWith("approval:")) {
+                    _state.update { it.copy(awaitingApproval = true, pairingCode = message.removePrefix("approval:")) }
+                }
             NativeClient.State.Connected -> {
                 _state.update { it.copy(hostName = message) }
                 if (!_state.value.usb) rememberHost(_state.value.target, message)
@@ -101,6 +116,13 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
     override fun onVideoConfig(config: VideoConfig) = _state.update { it.copy(video = config) }
 
     override fun onStats(stats: StreamStats) = _state.update { it.copy(stats = stats) }
+
+    override fun isKnownPc(pcKey: String): Boolean = pairing.isKnown(pcKey)
+
+    override fun onPairing(code: String, pcKey: String) {
+        pendingPcKey = pcKey
+        _state.update { it.copy(pairingCode = code, confirmOnDevice = true) }
+    }
 
     override fun onCleared() {
         discovery.stop()

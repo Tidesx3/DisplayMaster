@@ -7,7 +7,8 @@
 
 namespace dm {
 
-bool ControlServer::start(Handler handler) {
+bool ControlServer::start(Handler handler, std::wstring pipe_name) {
+    pipe_name_ = std::move(pipe_name);
     handler_ = std::move(handler);
     // SYSTEM + Administrators: full; interactive users: read/write. The host runs
     // elevated, the UI doesn't.
@@ -24,7 +25,7 @@ bool ControlServer::start(Handler handler) {
 void ControlServer::stop() {
     if (!running_.exchange(false)) return;
     // Unblock ConnectNamedPipe with a throwaway client.
-    HANDLE h = CreateFileW(kPipeName, GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    HANDLE h = CreateFileW(pipe_name_.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
     if (h != INVALID_HANDLE_VALUE) CloseHandle(h);
     if (accept_thread_.joinable()) accept_thread_.join();
     std::vector<Client> clients;
@@ -43,7 +44,7 @@ void ControlServer::stop() {
 void ControlServer::accept_loop() {
     SECURITY_ATTRIBUTES sa{sizeof sa, sd_, FALSE};
     while (running_) {
-        HANDLE pipe = CreateNamedPipeW(kPipeName, PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+        HANDLE pipe = CreateNamedPipeW(pipe_name_.c_str(), PIPE_ACCESS_DUPLEX, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
                                        PIPE_UNLIMITED_INSTANCES, 64 * 1024, 64 * 1024, 0, &sa);
         if (pipe == INVALID_HANDLE_VALUE) {
             DM_LOGE("Control pipe: CreateNamedPipe failed (%lu)", GetLastError());

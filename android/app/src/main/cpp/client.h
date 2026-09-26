@@ -2,20 +2,25 @@
 #pragma once
 
 #include <atomic>
+#include <condition_variable>
 #include <cstdint>
+#include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 
 #include "decoder.h"
+#include "dm/noise.h"
 #include "dm/protocol.h"
 
 struct ANativeWindow;
 
 namespace dm {
 
-// on_state(kConnecting, kApprovalPending): the PC is asking its user to allow this device.
-inline constexpr const char* kApprovalPending = "approval";
+// on_state(kConnecting, "approval:<code>"): the PC is asking its user to allow this device
+// (<code>: the pairing code, empty over USB).
+inline constexpr const char* kApprovalPending = "approval:";
 
 class ClientListener {
 public:
@@ -28,6 +33,11 @@ public:
         uint32_t dropped = 0;
     };
     virtual void on_stats(const Stats& s) = 0;
+    // Wi-Fi, after the encrypted handshake: true if this device paired with the PC whose
+    // public key (hex) this is. Called on the connection thread.
+    virtual bool is_known_pc(const std::string& pc_key) = 0;
+    // A PC this device doesn't know: show `code`; the user answers with confirm_pairing().
+    virtual void on_pairing(const std::string& code, const std::string& pc_key) = 0;
 };
 
 class Client {
@@ -36,8 +46,12 @@ public:
     ~Client() { disconnect(); }
 
     // Non-blocking: connects on a background thread, reporting via the listener.
-    void connect(const std::string& host, uint16_t port, const proto::Hello& hello);
+    // `identity` (this device's long-term key) turns on encryption: required over Wi-Fi.
+    void connect(const std::string& host, uint16_t port, const proto::Hello& hello,
+                 std::optional<noise::Key> identity);
     void disconnect();
+    // The user compared the pairing code with the PC's (after on_pairing).
+    void confirm_pairing(bool codes_match);
 
     // Surface lifecycle from the UI (nullptr when destroyed). Takes ownership of one reference.
     void set_surface(ANativeWindow* window);
@@ -48,7 +62,10 @@ public:
     }
 
 private:
-    void run(std::string host, uint16_t port, proto::Hello hello);
+    void run(std::string host, uint16_t port, proto::Hello hello, std::optional<noise::Key> identity);
+    bool handshake(int fd, const noise::Key& identity, proto::FrameParser& parser, std::string& error);
+    // After Welcome from a new PC: blocks until the user confirmed the code. False: cancelled.
+    bool wait_for_pairing_confirmation();
     void handle(const proto::RawMessage& m);
     void on_frame(const proto::VideoFrame& f);
     void reconfigure_decoder_locked();
@@ -59,7 +76,14 @@ private:
     std::thread thread_;
     std::atomic<bool> running_{false};
     std::atomic<int> sock_{-1};
-    std::mutex send_mu_;
+    std::mutex send_mu_;  // also guards channel_ for sealing (nonce order == byte order)
+    std::unique_ptr<noise::SecureChannel> channel_;
+    std::string pairing_code_;
+
+    std::mutex pair_mu_;
+    std::condition_variable pair_cv_;
+    bool need_confirmation_ = false;
+    int pair_decision_ = -1;  // -1 pending, 0 cancelled, 1 codes match
 
     std::mutex dec_mu_;  // guards decoder_, window_, config_
     Decoder decoder_;

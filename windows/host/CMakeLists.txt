@@ -21,13 +21,14 @@ add_library(dm_host_core STATIC
   src/session/session.cpp
   src/session/host.cpp
   src/session/approval.cpp
+  src/session/identity.cpp
   src/ipc/control_server.cpp
   src/setup/vdd_setup.cpp
 )
 target_include_directories(dm_host_core
   PUBLIC src
   PRIVATE ${PROJECT_SOURCE_DIR}/third_party/nvenc ${PROJECT_SOURCE_DIR}/third_party/amf/include)
-target_link_libraries(dm_host_core PUBLIC dm_protocol d3d11 dxgi d3dcompiler ws2_32 iphlpapi advapi32 dnsapi shell32 ole32 setupapi newdev user32)
+target_link_libraries(dm_host_core PUBLIC dm_protocol d3d11 dxgi d3dcompiler ws2_32 iphlpapi advapi32 dnsapi shell32 ole32 setupapi newdev user32 crypt32)
 # Synthetic pointer API needs the Windows 10 1809 headers.
 target_compile_definitions(dm_host_core PUBLIC _WIN32_WINNT=0x0A00 NTDDI_VERSION=0x0A000006)
 # Release version (tools\package.ps1 -Version passes it in; the app compares it for updates).

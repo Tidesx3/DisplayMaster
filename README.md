@@ -124,7 +124,8 @@ Other flags: `--mode extend|mirror`, `--codec h264|hevc|av1`, `--encoder nvenc|a
 | Rotation / Fold posture → virtual monitor resize | ✅ implemented |
 | Installer (setup.exe incl. driver), elevated windowless engine, optional autostart, firewall, clean uninstall | ✅ verified install / upgrade / uninstall |
 | Zero-setup USB (AOA, no USB debugging) | ⏳ planned (M5) |
-| UDP video with FEC for Wi-Fi, TLS | ⏳ planned (M4 / backlog) |
+| Encrypted Wi-Fi with pairing codes (Noise XX, verified against the official test vectors) | ✅ verified (emulator + simulated devices) |
+| UDP video with FEC for Wi-Fi | ⏳ planned (M4 / backlog) |
 | Wintab driver, pen button remapping | ⏳ planned (M7) |
 
 ## Testing
@@ -155,8 +156,14 @@ powershell -ExecutionPolicy Bypass -File tools\package.ps1 -Version 0.2.0 -Publi
 
 ## Security
 USB connections are trusted (they require a USB-debugging-authorized cable). Wi-Fi is off by
-default; when on, unknown devices must be approved on the PC because a connected device can see
-the screen and control input. Traffic is not encrypted yet — only use Wi-Fi on trusted networks.
+default. Over Wi-Fi everything is **encrypted and authenticated**: a Noise XX handshake
+(X25519, ChaCha20-Poly1305, BLAKE2b; [Monocypher](https://monocypher.org)) followed by sealed
+frames, so nobody on the network can watch the screen or inject input. The first time a device
+connects, the PC and the device show the same **6-digit pairing code**; you compare them, click
+*Allow* on the PC and *Codes match* on the device (a man in the middle would produce different
+codes). After that both sides recognize each other by their keys and connect silently. The PC's
+key is stored DPAPI-protected in `%LOCALAPPDATA%\DisplayMaster\identity.key`; *Forget* on the
+Connection page un-pairs a device. Details: `protocol/include/dm/noise.h`.
 
 ## License
 Project code: MIT. Third-party headers keep their licenses (`third_party/*`).

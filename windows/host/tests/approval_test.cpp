@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <filesystem>
+#include <fstream>
 #include <thread>
 
 #include "session/approval.h"
@@ -16,27 +17,42 @@ fs::path temp_store() {
     return p;
 }
 const auto kAlwaysConnected = [] { return true; };
+// Devices are identified by their public key (hex).
+const std::string kKey1(64, 'a'), kKey2(64, 'b');
 }  // namespace
 
 TEST(Approval, AllowAndRememberPersists) {
     const auto store = temp_store();
     {
         ApprovalBroker b(store);
-        EXPECT_FALSE(b.is_trusted("dev-1"));
+        EXPECT_FALSE(b.is_trusted(kKey1));
         std::thread ui([&] {
             while (b.pending().empty()) std::this_thread::sleep_for(std::chrono::milliseconds(5));
             EXPECT_EQ(b.pending()[0].name, "Fold7");
             EXPECT_TRUE(b.decide(b.pending()[0].session_id, true, true));
         });
-        EXPECT_TRUE(b.request({7, "dev-1", "Fold7", "SM-F966", "10.0.0.5:5000"}, 5000, kAlwaysConnected));
+        EXPECT_TRUE(b.request({7, kKey1, "Fold7", "SM-F966", "10.0.0.5:5000"}, 5000, kAlwaysConnected));
         ui.join();
-        EXPECT_TRUE(b.is_trusted("dev-1"));
+        EXPECT_TRUE(b.is_trusted(kKey1));
         EXPECT_TRUE(b.pending().empty());
     }
     ApprovalBroker reloaded(store);  // survives restarts
-    EXPECT_TRUE(reloaded.is_trusted("dev-1"));
-    reloaded.forget("dev-1");
-    EXPECT_FALSE(ApprovalBroker(store).is_trusted("dev-1"));
+    EXPECT_TRUE(reloaded.is_trusted(kKey1));
+    reloaded.forget(kKey1);
+    EXPECT_FALSE(ApprovalBroker(store).is_trusted(kKey1));
+}
+
+TEST(Approval, DropsEntriesFromBeforePairing) {
+    const auto store = temp_store();
+    fs::create_directories(store.parent_path());
+    {
+        std::ofstream f(store);
+        f << "c6f1e2a0-uuid-device-id\tOld Fold\n" << kKey2 << "\tTab\n";
+    }
+    ApprovalBroker b(store);
+    EXPECT_FALSE(b.is_trusted("c6f1e2a0-uuid-device-id"));  // no key: must pair again
+    EXPECT_TRUE(b.is_trusted(kKey2));
+    EXPECT_EQ(b.trusted().size(), 1u);
 }
 
 TEST(Approval, DenyAndAllowOnceAreNotRemembered) {
@@ -45,17 +61,17 @@ TEST(Approval, DenyAndAllowOnceAreNotRemembered) {
         while (b.pending().empty()) std::this_thread::sleep_for(std::chrono::milliseconds(5));
         b.decide(1, false, true);
     });
-    EXPECT_FALSE(b.request({1, "dev-2", "Tab", "", ""}, 5000, kAlwaysConnected));
+    EXPECT_FALSE(b.request({1, kKey2, "Tab", "", ""}, 5000, kAlwaysConnected));
     deny.join();
-    EXPECT_FALSE(b.is_trusted("dev-2"));
+    EXPECT_FALSE(b.is_trusted(kKey2));
 
     std::thread once([&] {
         while (b.pending().empty()) std::this_thread::sleep_for(std::chrono::milliseconds(5));
         b.decide(2, true, false);
     });
-    EXPECT_TRUE(b.request({2, "dev-2", "Tab", "", ""}, 5000, kAlwaysConnected));
+    EXPECT_TRUE(b.request({2, kKey2, "Tab", "", ""}, 5000, kAlwaysConnected));
     once.join();
-    EXPECT_FALSE(b.is_trusted("dev-2"));
+    EXPECT_FALSE(b.is_trusted(kKey2));
 }
 
 TEST(Approval, TimesOutAndStopsWhenDeviceLeaves) {

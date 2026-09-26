@@ -3,6 +3,7 @@
 #pragma once
 
 #include <atomic>
+#include <filesystem>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -11,6 +12,7 @@
 
 #include "display/virtual_display.h"
 #include "session/approval.h"
+#include "dm/noise.h"
 #include "dm/protocol.h"
 #include "encode/encoder.h"
 #include "input/input_injector.h"
@@ -31,7 +33,13 @@ struct HostOptions {
     float resolution_scale = 1.0f;      // virtual monitor size relative to the device panel
     bool inject_input = true;           // false: log input instead of injecting (testing)
     PressureCurve pen_curve;            // shaping applied to pen pressure
+    // Automated tests: own data folder and control pipe, local connections count as
+    // Wi-Fi (encrypted, need approval) and new pairings are approved automatically.
+    bool test_mode = false;
 };
+
+// Where the engine keeps settings, trusted devices and its identity key.
+std::filesystem::path host_data_dir(const HostOptions& opts);
 
 // Snapshot for the control API / UI.
 struct SessionStatus {
@@ -52,8 +60,9 @@ struct SessionStatus {
 
 class Session {
 public:
+    // `identity`: this PC's long-term key for encrypted Wi-Fi connections.
     Session(uint32_t id, std::unique_ptr<Connection> conn, const HostOptions& opts, VirtualDisplayManager& vdm,
-            ApprovalBroker& approvals);
+            ApprovalBroker& approvals, const noise::KeyPair& identity);
     ~Session();
 
     void start();
@@ -70,6 +79,8 @@ private:
     void receive_loop();
     void video_loop();
     bool handle_hello(const proto::Hello& h);
+    // Wi-Fi: one handshake message from the device. False ends the session.
+    bool handshake_step(const proto::RawMessage& m);
     void handle(const proto::RawMessage& m);
     bool log_input(const proto::RawMessage& m);
     bool setup_pipeline(class VideoPipeline& pipe);
@@ -77,15 +88,26 @@ private:
     proto::DisplayMode effective_mode(proto::DisplayMode requested) const;
     template <typename T>
     bool send(const T& msg) {
-        return conn_->send(proto::encode(msg));
+        return send_frame(proto::encode(msg));
     }
+    bool send_frame(const std::vector<uint8_t>& frame);
 
     const uint32_t id_;
     std::unique_ptr<Connection> conn_;
     HostOptions opts_;
+    const bool usb_;  // adb over USB (loopback): trusted; everything else is Wi-Fi
     VirtualDisplayManager& vdm_;
     ApprovalBroker& approvals_;
     InputInjector input_;
+
+    // Wi-Fi encryption. The channel exists once the handshake is done; send_mu_ keeps the
+    // nonce order equal to the byte order on the wire (several threads send).
+    const noise::KeyPair& identity_;
+    std::unique_ptr<noise::HandshakeXX> handshake_;
+    std::unique_ptr<noise::SecureChannel> channel_;
+    std::mutex send_mu_;
+    std::string device_key_;    // hex public key of the device (Wi-Fi)
+    std::string pairing_code_;  // shown on both screens for a new pairing
 
     mutable std::mutex mu_;
     proto::Hello hello_;

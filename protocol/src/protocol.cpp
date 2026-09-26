@@ -38,6 +38,7 @@ void Hello::write(ByteWriter& w) const {
     w.u32(max_bitrate_kbps);
     w.u8(static_cast<uint8_t>(transport));
     settings.write(w);
+    w.u8(flags);
 }
 bool Hello::read(ByteReader& r) {
     magic = r.u32();
@@ -52,6 +53,7 @@ bool Hello::read(ByteReader& r) {
     max_bitrate_kbps = r.u32();
     transport = static_cast<Transport>(r.u8());
     settings.read(r);
+    flags = r.remaining() ? r.u8() : 0;
     return r.ok() && magic == kMagic;
 }
 
@@ -296,6 +298,8 @@ const char* to_string(MsgType t) {
         case MsgType::Mouse: return "Mouse";
         case MsgType::Key: return "Key";
         case MsgType::ClientStats: return "ClientStats";
+        case MsgType::Handshake: return "Handshake";
+        case MsgType::Encrypted: return "Encrypted";
     }
     return "Unknown";
 }

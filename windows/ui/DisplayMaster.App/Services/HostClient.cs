@@ -11,8 +11,8 @@ public sealed record StatusResponse(
     bool Ok, string? Version, HostInfo? Host, List<SessionInfo>? Sessions,
     List<PendingDevice>? Pending, List<TrustedDevice>? Trusted);
 
-/// <summary>A Wi-Fi device waiting for the user to allow it.</summary>
-public sealed record PendingDevice(int Id, string Name, string Model, string Address);
+/// <summary>A Wi-Fi device waiting for the user to allow it. <c>Code</c>: pairing code, also shown on the device.</summary>
+public sealed record PendingDevice(int Id, string Name, string Model, string Address, string? Code = null);
 
 public sealed record TrustedDevice(string DeviceId, string Name);
 

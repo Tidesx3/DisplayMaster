@@ -31,8 +31,8 @@ Unknown commands return `{"ok":false,"error":"unknown command"}`.
     "addresses": ["192.168.0.101"],
     "adb_ready": ["R52R30ABCDE"], "adb_unauthorized": []
   },
-  "pending": [ {"id": 3, "name": "Galaxy Z Fold7", "model": "samsung SM-F966B", "address": "192.168.0.23:50122"} ],
-  "trusted": [ {"device_id": "bc62fa7d-…", "name": "Galaxy Z Fold7"} ],
+  "pending": [ {"id": 3, "name": "Galaxy Z Fold7", "model": "samsung SM-F966B", "address": "192.168.0.23:50122", "code": "482 913"} ],
+  "trusted": [ {"device_id": "3f9c…e1a0 (the device's public key, hex)", "name": "Galaxy Z Fold7"} ],
   "sessions": [ {
     "id": 1, "name": "Galaxy Tab S7+", "model": "samsung SM-T970", "transport": "usb",
     "streaming": true, "mode": "extend", "codec": "HEVC",

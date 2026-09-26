@@ -63,6 +63,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.displaymaster.client.DiscoveredPc
@@ -86,6 +90,7 @@ fun HomeScreen(
     onConnectNearby: (DiscoveredPc) -> Unit,
     onForget: (String) -> Unit,
     onCancel: () -> Unit,
+    onConfirmPairing: (Boolean) -> Unit,
     onDismissError: () -> Unit,
     onRetry: (() -> Unit)?,
     onSettings: ((Settings) -> Settings) -> Unit,
@@ -130,7 +135,7 @@ fun HomeScreen(
             }
         }
     }
-    if (state.phase == Phase.Connecting) ConnectingDialog(state.target, state.awaitingApproval, onCancel)
+    if (state.phase == Phase.Connecting) ConnectingDialog(state, onConfirmPairing, onCancel)
 }
 
 @Composable
@@ -317,7 +322,8 @@ private fun ErrorBanner(message: String, onDismiss: () -> Unit, onRetry: (() -> 
 }
 
 @Composable
-private fun ConnectingDialog(target: String, awaitingApproval: Boolean, onCancel: () -> Unit) {
+private fun ConnectingDialog(state: UiState, onConfirmPairing: (Boolean) -> Unit, onCancel: () -> Unit) {
+    val code = state.pairingCode
     Dialog(onDismissRequest = onCancel) {
         Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(
@@ -325,22 +331,49 @@ private fun ConnectingDialog(target: String, awaitingApproval: Boolean, onCancel
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(Modifier.size(56.dp), strokeWidth = 4.dp)
-                    AppLogo(size = 26.dp)
+                if (state.confirmOnDevice) {
+                    Icon(Icons.Rounded.Lock, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.primary)
+                } else {
+                    Box(contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(56.dp), strokeWidth = 4.dp)
+                        AppLogo(size = 26.dp)
+                    }
                 }
-                Text(if (awaitingApproval) "Confirm on your PC" else "Connecting", style = MaterialTheme.typography.titleLarge)
                 Text(
                     when {
-                        awaitingApproval -> "The first time you connect over Wi-Fi, DisplayMaster on the PC asks to allow this device."
-                        target == "USB" -> "Reaching your PC over USB…"
-                        else -> "Reaching $target…"
+                        state.confirmOnDevice -> "Pair with your PC"
+                        state.awaitingApproval -> "Confirm on your PC"
+                        else -> "Connecting"
+                    },
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    when {
+                        state.confirmOnDevice -> "Check that DisplayMaster on the PC shows the same code. It keeps the connection private."
+                        state.awaitingApproval && code.isNotEmpty() -> "Click Allow on the PC if it shows the same code."
+                        state.awaitingApproval -> "The first time you connect over Wi-Fi, DisplayMaster on the PC asks to allow this device."
+                        state.target == "USB" -> "Reaching your PC over USB…"
+                        else -> "Reaching ${state.target}…"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
-                TextButton(onClick = onCancel, colors = ButtonDefaults.textButtonColors()) { Text("Cancel") }
+                if (code.isNotEmpty() && (state.confirmOnDevice || state.awaitingApproval)) {
+                    Text(
+                        code,
+                        style = MaterialTheme.typography.displaySmall,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 4.sp,
+                    )
+                }
+                if (state.confirmOnDevice) {
+                    Button(onClick = { onConfirmPairing(true) }, modifier = Modifier.fillMaxWidth()) { Text("Codes match") }
+                    TextButton(onClick = { onConfirmPairing(false) }) { Text("They're different") }
+                } else {
+                    TextButton(onClick = onCancel, colors = ButtonDefaults.textButtonColors()) { Text("Cancel") }
+                }
             }
         }
     }

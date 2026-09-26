@@ -16,7 +16,9 @@ public:
     static constexpr const wchar_t* kServiceType = L"_displaymaster._tcp.local";
 
     ~MdnsAdvertiser() { stop(); }
-    bool start(uint16_t port, const std::wstring& pc_name);
+    // `ipv4` (dotted): the address to announce; empty lets Windows choose, which can be a
+    // Hyper-V / VM adapter the device can't reach.
+    bool start(uint16_t port, const std::wstring& pc_name, const std::string& ipv4 = {});
     void stop();
     bool running() const { return instance_ != nullptr; }
 

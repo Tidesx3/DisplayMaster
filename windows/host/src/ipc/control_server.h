@@ -20,7 +20,8 @@ public:
     static constexpr const wchar_t* kPipeName = L"\\\\.\\pipe\\DisplayMaster.Control";
 
     ~ControlServer() { stop(); }
-    bool start(Handler handler);
+    // `pipe_name` other than kPipeName: tests, so they never talk to the real app.
+    bool start(Handler handler, std::wstring pipe_name = kPipeName);
     void stop();
 
 private:
@@ -28,6 +29,7 @@ private:
     void serve(HANDLE pipe);
 
     Handler handler_;
+    std::wstring pipe_name_;
     std::thread accept_thread_;
     struct Client {
         std::thread thread;

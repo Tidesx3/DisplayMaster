@@ -42,6 +42,11 @@ enum class MsgType : uint8_t {
     Key = 23,
 
     ClientStats = 30,  // client -> host, periodic
+
+    // Wi-Fi only (see dm/noise.h): three Noise handshake messages, then every frame
+    // travels sealed inside an Encrypted frame. USB (adb) stays plain.
+    Handshake = 40,
+    Encrypted = 41,
 };
 
 enum class Codec : uint8_t { H264 = 1, HEVC = 2, AV1 = 3 };
@@ -100,6 +105,12 @@ struct ClientSettings {
     bool read(ByteReader& r);
 };
 
+enum HelloFlags : uint8_t {
+    // Wi-Fi: the device doesn't know this PC's key yet, so the PC must show the pairing
+    // code for comparison even if it already trusts the device.
+    kHelloConfirmPairing = 1u << 0,
+};
+
 struct Hello {
     static constexpr MsgType kType = MsgType::Hello;
     uint32_t magic = kMagic;
@@ -114,6 +125,7 @@ struct Hello {
     uint32_t max_bitrate_kbps = 0;
     Transport transport = Transport::Unknown;
     ClientSettings settings;  // initial preferences, so the first stream is already right
+    uint8_t flags = 0;        // HelloFlags; optional trailing field (older apps omit it)
 
     void write(ByteWriter& w) const;
     bool read(ByteReader& r);

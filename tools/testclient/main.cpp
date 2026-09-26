@@ -3,6 +3,9 @@
 //
 //   dm_testclient [--host 127.0.0.1] [--port 47800] [--clients N] [--seconds S]
 //                 [--size 1280x800] [--codec h264|hevc|av1] [--mode extend|mirror]
+//                 [--secure] [--key <64 hex digits>]
+//   --secure: encrypted like Wi-Fi (Noise handshake); --key fixes the device key so a
+//   second run is recognized as an already paired device.
 //
 // Exit code 0 when every client passed.
 #include <winsock2.h>
@@ -11,10 +14,12 @@
 #include <atomic>
 #include <chrono>
 #include <cstdio>
+#include <memory>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include "dm/noise.h"
 #include "dm/protocol.h"
 
 using namespace dm;
@@ -30,6 +35,8 @@ struct Options {
     uint32_t width = 1280, height = 800;
     proto::Codec codec = proto::Codec::HEVC;
     proto::DisplayMode mode = proto::DisplayMode::Mirror;
+    bool secure = false;
+    std::optional<noise::Key> key;
 };
 
 struct Result {
@@ -39,6 +46,8 @@ struct Result {
     uint64_t frames = 0, keyframes = 0, bytes = 0;
     double rtt_ms = 0;
     bool first_is_key = false, annexb_ok = true, keyframe_on_request = false;
+    std::string pairing_code;  // secure connections
+    bool approval_requested = false;
 };
 
 uint64_t mono_us() {
@@ -81,6 +90,36 @@ Result run_client(const Options& o, int index) {
     DWORD timeout_ms = 3000;
     setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout_ms), sizeof timeout_ms);
 
+    proto::FrameParser parser;
+    proto::RawMessage msg;
+    std::vector<uint8_t> buf(256 * 1024);
+
+    // Wi-Fi style: Noise XX handshake first, then every frame sealed.
+    std::unique_ptr<noise::SecureChannel> channel;
+    if (o.secure) {
+        const auto identity = o.key ? noise::KeyPair::from_private(*o.key) : noise::KeyPair::generate();
+        noise::HandshakeXX hs(noise::HandshakeXX::Role::Initiator, identity, noise::prologue());
+        std::vector<uint8_t> out, payload;
+        hs.write_message({}, out);
+        send_all(s, noise::handshake_frame(out));
+        while (!parser.next(msg)) {
+            const int n = recv(s, reinterpret_cast<char*>(buf.data()), static_cast<int>(buf.size()), 0);
+            if (n <= 0) break;
+            parser.feed(buf.data(), static_cast<size_t>(n));
+        }
+        if (msg.header.type != proto::MsgType::Handshake || !hs.read_message(msg.payload, payload)) {
+            r.error = "handshake failed";
+            closesocket(s);
+            return r;
+        }
+        out.clear();
+        hs.write_message({}, out);
+        send_all(s, noise::handshake_frame(out));
+        r.pairing_code = noise::pairing_code(hs.handshake_hash());
+        channel = std::make_unique<noise::SecureChannel>(hs);
+    }
+    auto send_msg = [&](const std::vector<uint8_t>& frame) { return send_all(s, channel ? channel->seal(frame) : frame); };
+
     proto::Hello hello;
     hello.device_id = "testclient-" + std::to_string(index);
     hello.device_name = "Test client " + std::to_string(index + 1);
@@ -93,11 +132,9 @@ Result run_client(const Options& o, int index) {
     hello.settings.mode = o.mode;
     hello.settings.max_fps = 60;
     hello.settings.preferred_codec = o.codec;
-    send_all(s, proto::encode(hello));
+    send_msg(proto::encode(hello));
 
-    proto::FrameParser parser;
-    proto::RawMessage msg;
-    std::vector<uint8_t> buf(256 * 1024);
+    proto::RawMessage outer;
     bool welcomed = false, configured = false, requested_key = false;
     uint64_t key_requested_at_frame = 0;
     const auto start = Clock::now();
@@ -107,13 +144,13 @@ Result run_client(const Options& o, int index) {
     while (Clock::now() < end) {
         if (Clock::now() - last_ping > std::chrono::milliseconds(500)) {
             last_ping = Clock::now();
-            send_all(s, proto::encode(proto::Ping{mono_us()}));
+            send_msg(proto::encode(proto::Ping{mono_us()}));
         }
         // Halfway through, ask for a keyframe like a decoder that lost sync.
         if (configured && !requested_key && Clock::now() - start > std::chrono::seconds(o.seconds) / 2) {
             requested_key = true;
             key_requested_at_frame = r.frames;
-            send_all(s, proto::encode(proto::RequestKeyframe{}));
+            send_msg(proto::encode(proto::RequestKeyframe{}));
         }
         const int n = recv(s, reinterpret_cast<char*>(buf.data()), static_cast<int>(buf.size()), 0);
         if (n <= 0) {
@@ -122,8 +159,16 @@ Result run_client(const Options& o, int index) {
             break;
         }
         parser.feed(buf.data(), static_cast<size_t>(n));
-        while (parser.next(msg)) {
+        while (parser.next(outer)) {
+            if (channel && (outer.header.type != proto::MsgType::Encrypted || !channel->open(outer.payload, msg))) {
+                r.error = "message failed authentication";
+                break;
+            }
+            if (!channel) msg = outer;
             switch (msg.header.type) {
+                case proto::MsgType::AwaitingApproval:
+                    r.approval_requested = true;
+                    break;
                 case proto::MsgType::Welcome: {
                     auto w = proto::decode<proto::Welcome>(msg.payload);
                     if (!w || !w->accepted) {
@@ -161,8 +206,9 @@ Result run_client(const Options& o, int index) {
                 default: break;
             }
         }
+        if (!r.error.empty()) break;
     }
-    send_all(s, proto::encode(proto::Bye{"test finished"}));
+    send_msg(proto::encode(proto::Bye{"test finished"}));
     closesocket(s);
 
     if (r.error.empty()) {
@@ -196,6 +242,10 @@ int main(int argc, char** argv) {
             o.codec = v == "h264" ? proto::Codec::H264 : v == "av1" ? proto::Codec::AV1 : proto::Codec::HEVC;
         } else if (a == "--mode") {
             o.mode = next() == "extend" ? proto::DisplayMode::Extend : proto::DisplayMode::Mirror;
+        } else if (a == "--secure") {
+            o.secure = true;
+        } else if (a == "--key") {
+            o.key = noise::key_from_hex(next());
         }
     }
     WSADATA wsa;
@@ -214,6 +264,9 @@ int main(int argc, char** argv) {
                r.ok ? "PASS" : "FAIL", codec, r.config.width, r.config.height, r.frames, r.keyframes,
                r.frames / static_cast<double>(o.seconds), r.bytes * 8.0 / o.seconds / 1e6, r.rtt_ms,
                r.ok ? "" : "  -> ", r.error.c_str());
+        if (!r.pairing_code.empty())
+            printf("client %zu: encrypted, pairing code %s%s\n", i + 1, r.pairing_code.c_str(),
+                   r.approval_requested ? "" : ", already paired");
         failed += !r.ok;
     }
     WSACleanup();

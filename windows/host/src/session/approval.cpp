@@ -8,6 +8,7 @@
 
 #include "core/log.h"
 #include "core/win.h"
+#include "dm/noise.h"
 
 namespace dm {
 
@@ -29,7 +30,10 @@ void ApprovalBroker::load() {
     while (std::getline(f, line)) {
         const auto tab = line.find('\t');
         if (tab == std::string::npos || tab == 0) continue;
-        trusted_[line.substr(0, tab)] = line.substr(tab + 1);
+        // Entries from before encrypted pairing hold a device id, not a key: that device pairs again.
+        const auto key = line.substr(0, tab);
+        if (!noise::key_from_hex(key)) continue;
+        trusted_[key] = line.substr(tab + 1);
     }
 }
 
@@ -40,15 +44,16 @@ void ApprovalBroker::save() {
     for (const auto& [id, name] : trusted_) f << id << '\t' << name << '\n';
 }
 
-bool ApprovalBroker::is_trusted(const std::string& device_id) {
+bool ApprovalBroker::is_trusted(const std::string& device_key) {
     std::lock_guard lock(mu_);
-    return !device_id.empty() && trusted_.count(device_id);
+    return !device_key.empty() && trusted_.count(device_key);
 }
 
 bool ApprovalBroker::request(const Pending& info, uint32_t timeout_ms, const std::function<bool()>& still_connected) {
     std::unique_lock lock(mu_);
     requests_[info.session_id] = Request{info};
-    DM_LOGI("Waiting for approval of \"%s\" (%s) from %s", info.name.c_str(), info.model.c_str(), info.address.c_str());
+    DM_LOGI("Waiting for approval of \"%s\" (%s) from %s, pairing code %s", info.name.c_str(), info.model.c_str(),
+            info.address.c_str(), info.code.c_str());
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
     auto done = [&] {
         const auto& r = requests_[info.session_id];
@@ -68,8 +73,8 @@ bool ApprovalBroker::decide(uint32_t session_id, bool allow, bool remember) {
     auto it = requests_.find(session_id);
     if (it == requests_.end()) return false;
     it->second.decision = allow;
-    if (allow && remember && !it->second.info.device_id.empty()) {
-        trusted_[it->second.info.device_id] = it->second.info.name;
+    if (allow && remember && !it->second.info.device_key.empty()) {
+        trusted_[it->second.info.device_key] = it->second.info.name;
         save();
     }
     cv_.notify_all();
@@ -82,6 +87,12 @@ void ApprovalBroker::cancel(uint32_t session_id) {
     if (it == requests_.end()) return;
     it->second.cancelled = true;
     cv_.notify_all();
+}
+
+void ApprovalBroker::trust(const std::string& device_key, const std::string& name) {
+    std::lock_guard lock(mu_);
+    trusted_[device_key] = name;
+    save();
 }
 
 std::vector<ApprovalBroker::Pending> ApprovalBroker::pending() {
@@ -97,9 +108,9 @@ std::vector<std::pair<std::string, std::string>> ApprovalBroker::trusted() {
     return {trusted_.begin(), trusted_.end()};
 }
 
-void ApprovalBroker::forget(const std::string& device_id) {
+void ApprovalBroker::forget(const std::string& device_key) {
     std::lock_guard lock(mu_);
-    if (trusted_.erase(device_id)) save();
+    if (trusted_.erase(device_key)) save();
 }
 
 }  // namespace dm

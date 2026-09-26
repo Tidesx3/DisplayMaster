@@ -86,6 +86,11 @@ std::vector<std::string> lan_ipv4_addresses() {
     return out;
 }
 
+std::filesystem::path host_data_dir(const HostOptions& opts) {
+    if (opts.test_mode) return std::filesystem::temp_directory_path() / L"DisplayMaster-test";
+    return Config::default_path().parent_path();
+}
+
 Host::Host(const HostOptions& opts) : opts_(opts), vdm_(std::make_unique<MttVddProvider>()) {
     allow_wifi_ = opts_.allow_wifi.value_or(config_.get_bool("wifi", false));
     opts_.pen_curve = {config_.get_float("pen_min", 0.0f), config_.get_float("pen_max", 1.0f),
@@ -100,7 +105,7 @@ bool Host::start_listening() {
     return server_.start(opts_.port, allow_wifi_, [this](std::unique_ptr<Connection> c) {
         std::lock_guard lock(mu_);
         const uint32_t id = next_id_++;
-        auto s = std::make_unique<Session>(id, std::move(c), opts_, vdm_, approvals_);
+        auto s = std::make_unique<Session>(id, std::move(c), opts_, vdm_, approvals_, identity_);
         s->start();
         sessions_.emplace(id, std::move(s));
     });
@@ -111,7 +116,8 @@ bool Host::start() {
     if (!start_listening()) return false;
     update_advertising();
     if (opts_.adb) adb_.start(opts_.port, opts_.adb_auto_launch);
-    if (!control_.start([this](const std::string& req) { return handle_control(req); }))
+    const std::wstring pipe = opts_.test_mode ? std::wstring(ControlServer::kPipeName) + L".Test" : ControlServer::kPipeName;
+    if (!control_.start([this](const std::string& req) { return handle_control(req); }, pipe))
         DM_LOGW("Control API unavailable - the DisplayMaster app can't show status");
     return true;
 }
@@ -124,7 +130,8 @@ void Host::update_advertising() {
     wchar_t name[MAX_COMPUTERNAME_LENGTH + 1];
     DWORD len = ARRAYSIZE(name);
     GetComputerNameW(name, &len);
-    mdns_.start(opts_.port, name);
+    const auto addresses = lan_ipv4_addresses();  // best route first
+    mdns_.start(opts_.port, name, addresses.empty() ? std::string() : addresses.front());
 }
 
 void Host::stop() {
@@ -252,12 +259,14 @@ std::string Host::status_json() {
             .field("name", p.name)
             .field("model", p.model)
             .field("address", p.address)
+            .field("code", p.code)
             .end_object();
     w.end_array();
 
     w.key("trusted").begin_array();
-    for (const auto& [device_id, device_name] : approvals_.trusted())
-        w.begin_object().field("device_id", device_id).field("name", device_name).end_object();
+    // "device_id" is the device's public key (see ApprovalBroker); the app passes it back to forget.
+    for (const auto& [device_key, device_name] : approvals_.trusted())
+        w.begin_object().field("device_id", device_key).field("name", device_name).end_object();
     w.end_array();
 
     w.key("sessions").begin_array();
