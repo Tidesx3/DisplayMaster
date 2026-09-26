@@ -23,6 +23,23 @@ public sealed partial class DeviceViewModel : ObservableObject
     [ObservableProperty] public partial string EncodeText { get; set; } = "–";
     [ObservableProperty] public partial string DecodeText { get; set; } = "–";
     [ObservableProperty] public partial string DeviceGlyph { get; set; } = Glyphs.Tablet;
+    [ObservableProperty] public partial bool IsExtend { get; set; }
+    [ObservableProperty] public partial Choice<string>? Position { get; set; }
+
+    public static IReadOnlyList<Choice<string>> Positions { get; } =
+    [
+        new("right", "Right of my screens"), new("left", "Left of my screens"),
+        new("above", "Above my screens"), new("below", "Below my screens"),
+    ];
+
+    /// <summary>The user picked another position (not raised for updates from the engine).</summary>
+    public Action<DeviceViewModel, string>? PositionPicked { get; set; }
+    private bool _applying;
+
+    partial void OnPositionChanged(Choice<string>? value)
+    {
+        if (!_applying && value is not null) PositionPicked?.Invoke(this, value.Value);
+    }
 
     /// <summary>Wi-Fi video over UDP (with loss repair) rather than on the control connection.</summary>
     [ObservableProperty] public partial bool IsUdp { get; set; }
@@ -45,6 +62,10 @@ public sealed partial class DeviceViewModel : ObservableObject
         Name = s.Name;
         Model = s.Model;
         IsUsb = s.Transport == "usb";
+        IsExtend = s.Mode == "extend";
+        _applying = true;
+        Position = Positions.FirstOrDefault(p => p.Value == s.Position) ?? Positions[0];
+        _applying = false;
         IsUdp = s.Udp;
         Streaming = s.Streaming;
         HasPen = s.Pen;
@@ -190,7 +211,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             var vm = Devices.FirstOrDefault(d => d.Id == s.Id);
             if (vm is null)
             {
-                vm = new DeviceViewModel(s.Id);
+                vm = new DeviceViewModel(s.Id) { PositionPicked = (d, pos) => _ = _host.SetPositionAsync(d.Id, pos) };
                 Devices.Add(vm);
             }
             vm.Update(s);

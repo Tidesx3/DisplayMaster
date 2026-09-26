@@ -32,7 +32,7 @@ public sealed record SessionInfo(
     int Id, string Name, string Model, string Transport, bool Streaming, string Mode, string Codec,
     int Width, int Height, int Fps, int BitrateKbps, string Encoder, string Gpu, string Monitor, bool Pen,
     double SentFps, double Mbps, double EncodeMs, double DecodeMs, int Dropped, MonitorRect Rect,
-    bool Udp = false, int UdpLostFrames = 0);
+    bool Udp = false, int UdpLostFrames = 0, string Position = "right");
 
 /// <summary>
 /// Talks to DisplayMasterHost.exe over \\.\pipe\DisplayMaster.Control (one JSON request,
@@ -72,6 +72,10 @@ public sealed class HostClient : IDisposable
         RequestAsync($"{{\"cmd\":\"forget_device\",\"device_id\":{JsonSerializer.Serialize(deviceId)}}}");
 
     private static string Bool(bool b) => b ? "true" : "false";
+
+    /// <summary>Where the device's extended screen sits: right, left, above, below (saved per device).</summary>
+    public Task SetPositionAsync(int sessionId, string position) =>
+        RequestAsync($"{{\"cmd\":\"set_position\",\"id\":{sessionId},\"position\":\"{position}\"}}");
 
     public Task SetStreamAsync(int bitrateKbps, int maxFps, double scale, string codec) =>
         RequestAsync(FormattableString.Invariant(

@@ -125,6 +125,9 @@ Host::Host(const HostOptions& opts) : opts_(opts), vdm_(std::make_unique<MttVddP
     opts_.pen_curve = {config_.get_float("pen_min", 0.0f), config_.get_float("pen_max", 1.0f),
                        config_.get_float("pen_gamma", 1.0f)};
     load_stream_options();
+    opts_.placement_for = [this](const std::string& device_id) {
+        return placement_from_name(config_.get_string("place." + device_id, "right")).value_or(Placement::Right);
+    };
 }
 
 Host::~Host() {
@@ -218,6 +221,19 @@ std::string Host::handle_control(const std::string& request) {
     }
     if (cmd == "forget_device") {
         approvals_.forget(json::get_string(request, "device_id").value_or(""));
+        return ok_json();
+    }
+    if (cmd == "set_position") {
+        // Where a device's extended screen sits: "right", "left", "above", "below" (saved per device).
+        const auto id = static_cast<uint32_t>(json::get_int(request, "id").value_or(0));
+        const auto p = placement_from_name(json::get_string(request, "position").value_or(""));
+        if (!p) return error_json("position must be right, left, above or below");
+        std::lock_guard lock(mu_);
+        auto it = sessions_.find(id);
+        if (it == sessions_.end()) return error_json("no such session");
+        const auto device = it->second->device_id();
+        if (!device.empty()) config_.set_string("place." + device, placement_name(*p));
+        it->second->set_placement(*p);
         return ok_json();
     }
     if (cmd == "set_stream") {
@@ -337,6 +353,7 @@ std::string Host::status_json() {
             .field("model", st.model)
             .field("transport", st.usb ? "usb" : "wifi")
             .field("udp", st.udp)
+            .field("position", placement_name(st.placement))
             .field("udp_lost_frames", st.udp_lost_frames)
             .field("streaming", st.streaming)
             .field("mode", mode_name(st.mode))

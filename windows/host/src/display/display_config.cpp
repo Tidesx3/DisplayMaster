@@ -179,13 +179,52 @@ bool set_monitor_mode(const std::wstring& gdi_name, uint32_t width, uint32_t hei
     return r == DISP_CHANGE_SUCCESSFUL;
 }
 
-PointI position_right_of_desktop(const std::vector<MonitorInfo>& monitors, const std::wstring& exclude_gdi) {
-    int32_t right = 0;
+const char* placement_name(Placement p) {
+    switch (p) {
+        case Placement::Left: return "left";
+        case Placement::Above: return "above";
+        case Placement::Below: return "below";
+        case Placement::Right: break;
+    }
+    return "right";
+}
+
+std::optional<Placement> placement_from_name(const std::string& s) {
+    if (s == "right") return Placement::Right;
+    if (s == "left") return Placement::Left;
+    if (s == "above") return Placement::Above;
+    if (s == "below") return Placement::Below;
+    return std::nullopt;
+}
+
+PointI position_for(Placement p, const std::vector<MonitorInfo>& monitors, const std::wstring& exclude_gdi,
+                    int32_t w, int32_t h) {
+    bool any = false;
+    int32_t left = 0, top = 0, right = 0, bottom = 0;
+    RectI primary{0, 0, 0, 0};
     for (const auto& m : monitors) {
         if (!m.active || m.gdi_name == exclude_gdi) continue;
+        if (!any) {
+            left = m.rect.x;
+            top = m.rect.y;
+            right = m.rect.x + m.rect.w;
+            bottom = m.rect.y + m.rect.h;
+            any = true;
+        }
+        left = std::min(left, m.rect.x);
+        top = std::min(top, m.rect.y);
         right = std::max(right, m.rect.x + m.rect.w);
+        bottom = std::max(bottom, m.rect.y + m.rect.h);
+        if (m.primary) primary = m.rect;
     }
-    return {right, 0};
+    const int32_t center_x = primary.x + (primary.w - w) / 2;
+    switch (p) {
+        case Placement::Left: return {left - w, primary.y};
+        case Placement::Above: return {center_x, top - h};
+        case Placement::Below: return {center_x, bottom};
+        case Placement::Right: break;
+    }
+    return {right, primary.y};
 }
 
 }  // namespace dm

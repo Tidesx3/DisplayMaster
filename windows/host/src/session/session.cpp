@@ -212,6 +212,7 @@ bool Session::handle_hello(const proto::Hello& h) {
         hello_ = h;
         settings_ = h.settings;
         settings_.mode = effective_mode(settings_.mode);
+        if (opts_.placement_for) placement_ = opts_.placement_for(h.device_id);
     }
     DM_LOGI("Session %u: \"%s\" (%s, Android API %u) %ux%u@%.0fHz via %s", id_, h.device_name.c_str(), h.model.c_str(),
             h.sdk_int, h.geometry.width_px, h.geometry.height_px, h.geometry.refresh_mhz / 1000.0,
@@ -224,6 +225,7 @@ bool Session::handle_hello(const proto::Hello& h) {
         status_.peer = conn_->peer();
         status_.usb = usb_;
         status_.has_pen = h.input_caps & proto::kCapPen;
+        status_.placement = placement_;
     }
     // Only over the encrypted channel: the transport message carries the UDP packet key.
     if (!usb_ && channel_ && h.udp_port) start_udp(h.udp_port);
@@ -356,6 +358,21 @@ bool Session::log_input(const proto::RawMessage& m) {
     }
 }
 
+void Session::set_placement(Placement p) {
+    {
+        std::lock_guard lock(status_mu_);
+        status_.placement = p;
+    }
+    std::lock_guard lock(mu_);
+    placement_ = p;
+    reconfigure_ = true;
+}
+
+std::string Session::device_id() const {
+    std::lock_guard lock(mu_);
+    return hello_.device_id;
+}
+
 void Session::set_stream_options(const HostOptions& o) {
     std::lock_guard lock(mu_);
     opts_.codec = o.codec;
@@ -383,8 +400,10 @@ bool Session::setup_pipeline(VideoPipeline& pipe) {
     std::vector<proto::Codec> codecs;
     uint32_t max_fps, bitrate_kbps;
     float scale;
+    Placement placement;
     {
         std::lock_guard lock(mu_);  // the app can change the stream options meanwhile
+        placement = placement_;
         geo = hello_.geometry;
         settings = settings_;
         codecs = codec_order();
@@ -406,7 +425,7 @@ bool Session::setup_pipeline(VideoPipeline& pipe) {
     std::optional<MonitorInfo> mon;
     if (settings.mode == proto::DisplayMode::Extend) {
         const DisplayModeSpec mode{panel.w, panel.h, fps};
-        mon = have_monitor_ ? vdm_.reconfigure(id_, mode) : vdm_.acquire(id_, mode);
+        mon = have_monitor_ ? vdm_.reconfigure(id_, mode, placement) : vdm_.acquire(id_, mode, placement);
         if (mon) have_monitor_ = true;
     } else {
         if (have_monitor_) {

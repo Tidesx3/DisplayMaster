@@ -215,7 +215,8 @@ void VirtualDisplayManager::detach_unused_locked(size_t keep_slot) {
     }
 }
 
-std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const DisplayModeSpec& mode) {
+std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const DisplayModeSpec& mode,
+                                                            Placement placement) {
     auto mon = wait_for_slot(slot, false, 5000);
     if (!mon) {
         DM_LOGE("Virtual monitor slot %zu did not appear", slot);
@@ -228,7 +229,8 @@ std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const 
     // Right after a driver reload the old monitor instance can still be listed without
     // the new modes; retry briefly against the freshly enumerated monitor.
     for (int attempt = 0; attempt < 30; ++attempt) {
-        const auto pos = position_right_of_desktop(enumerate_monitors(false), mon->gdi_name);
+        const auto pos = position_for(placement, enumerate_monitors(false), mon->gdi_name,
+                                      static_cast<int32_t>(mode.width), static_cast<int32_t>(mode.height));
         if (set_monitor_mode(mon->gdi_name, mode.width, mode.height, mode.refresh_hz, pos, attempt < 29) ||
             // Refresh rate might not be offered; accept the driver's choice.
             set_monitor_mode(mon->gdi_name, mode.width, mode.height, 0, pos, attempt < 29))
@@ -240,7 +242,8 @@ std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const 
     return std::nullopt;
 }
 
-std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, const DisplayModeSpec& mode) {
+std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, const DisplayModeSpec& mode,
+                                                         Placement placement) {
     if (!available_) return std::nullopt;
     std::lock_guard lock(mu_);
 
@@ -261,9 +264,9 @@ std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, c
         return std::nullopt;
     }
 
-    auto mon = apply_mode(slot, mode);
+    auto mon = apply_mode(slot, mode, placement);
     if (!mon) return std::nullopt;
-    slots_[slot] = Slot{session_id, mode};
+    slots_[slot] = Slot{session_id, mode, placement};
     // A driver reload re-attaches every virtual monitor; hide the ones nobody uses.
     detach_unused_locked(slot);
     mon = wait_for_slot(slot, true, 1000);
@@ -273,13 +276,14 @@ std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, c
     return mon;
 }
 
-std::optional<MonitorInfo> VirtualDisplayManager::reconfigure(uint32_t session_id, const DisplayModeSpec& mode) {
+std::optional<MonitorInfo> VirtualDisplayManager::reconfigure(uint32_t session_id, const DisplayModeSpec& mode,
+                                                             Placement placement) {
     std::lock_guard lock(mu_);
     for (auto& [slot, s] : slots_) {
         if (s.session_id != session_id) continue;
         // Capture restarts (another monitor changed) must not touch the display config:
         // a mode set here would in turn restart every other session's capture.
-        if (s.mode == mode) {
+        if (s.mode == mode && s.placement == placement) {
             auto mons = vdd_monitors();
             if (slot < mons.size() && mons[slot].active && mons[slot].rect.w == static_cast<int32_t>(mode.width) &&
                 mons[slot].rect.h == static_cast<int32_t>(mode.height))
@@ -290,7 +294,8 @@ std::optional<MonitorInfo> VirtualDisplayManager::reconfigure(uint32_t session_i
             if (!provider_->configure(provider_->monitor_count(), known_modes_)) return std::nullopt;
         }
         s.mode = mode;
-        return apply_mode(slot, mode);
+        s.placement = placement;
+        return apply_mode(slot, mode, placement);
     }
     return std::nullopt;
 }

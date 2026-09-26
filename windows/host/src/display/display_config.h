@@ -46,6 +46,15 @@ bool set_monitor_mode(const std::wstring& gdi_name, uint32_t width, uint32_t hei
 
 // Place a new monitor of the given width to the right of all current monitors,
 // top-aligned with the primary.
-PointI position_right_of_desktop(const std::vector<MonitorInfo>& monitors, const std::wstring& exclude_gdi);
+// Where a device's virtual screen goes, relative to the desktop.
+enum class Placement : uint8_t { Right, Left, Above, Below };
+const char* placement_name(Placement p);
+std::optional<Placement> placement_from_name(const std::string& s);
+
+// Top-left corner for a w x h monitor next to the other active monitors (`exclude_gdi`
+// is the monitor being placed): left/right of the outermost one, top-aligned with the
+// primary; above/below it, centred on the primary.
+PointI position_for(Placement p, const std::vector<MonitorInfo>& monitors, const std::wstring& exclude_gdi,
+                    int32_t w, int32_t h);
 
 }  // namespace dm

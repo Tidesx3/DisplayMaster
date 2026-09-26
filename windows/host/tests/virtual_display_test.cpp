@@ -58,3 +58,37 @@ TEST(MttVddXml, UnknownFormatIsLeftAlone) {
     EXPECT_EQ(MttVddProvider::add_resolutions(weird, {{800, 600, 60}}, &changed), weird);
     EXPECT_FALSE(changed);
 }
+
+namespace {
+MonitorInfo mon(const wchar_t* gdi, int32_t x, int32_t y, int32_t w, int32_t h, bool primary = false) {
+    MonitorInfo m;
+    m.gdi_name = gdi;
+    m.rect = {x, y, w, h};
+    m.active = true;
+    m.primary = primary;
+    return m;
+}
+}  // namespace
+
+TEST(Placement, NextToTheDesktop) {
+    // The dev PC: a 1920x1080 monitor left of the 1920x1080 primary, plus the device's screen.
+    const std::vector<MonitorInfo> mons = {mon(L"DISPLAY1", -1920, 0, 1920, 1080),
+                                           mon(L"DISPLAY2", 0, 0, 1920, 1080, true),
+                                           mon(L"DISPLAY9", 5000, 0, 800, 1280)};
+    const auto self = L"DISPLAY9";  // the monitor being placed doesn't count
+    auto at = [&](Placement p) { return position_for(p, mons, self, 800, 1280); };
+    EXPECT_EQ(at(Placement::Right).x, 1920);
+    EXPECT_EQ(at(Placement::Right).y, 0);
+    EXPECT_EQ(at(Placement::Left).x, -1920 - 800);
+    EXPECT_EQ(at(Placement::Left).y, 0);
+    EXPECT_EQ(at(Placement::Above).x, (1920 - 800) / 2);  // centred on the primary
+    EXPECT_EQ(at(Placement::Above).y, -1280);
+    EXPECT_EQ(at(Placement::Below).x, (1920 - 800) / 2);
+    EXPECT_EQ(at(Placement::Below).y, 1080);
+}
+
+TEST(Placement, Names) {
+    for (auto p : {Placement::Right, Placement::Left, Placement::Above, Placement::Below})
+        EXPECT_EQ(placement_from_name(placement_name(p)), p);
+    EXPECT_FALSE(placement_from_name("sideways"));
+}

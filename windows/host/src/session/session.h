@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <filesystem>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
@@ -35,6 +36,8 @@ struct HostOptions {
     bool inject_input = true;           // false: log input instead of injecting (testing)
     // --codec/--bitrate/--fps/--scale given: they win over the app's settings.
     bool stream_from_cli = false;
+    // Saved screen position for a device (by its device id); set by the Host.
+    std::function<Placement(const std::string& device_id)> placement_for;
     PressureCurve pen_curve;            // shaping applied to pen pressure
     // Automated tests: own data folder and control pipe, local connections count as
     // Wi-Fi (encrypted, need approval) and new pairings are approved automatically.
@@ -57,6 +60,7 @@ struct SessionStatus {
     RectI monitor_rect;
     bool has_pen = false;
     bool udp = false;  // video over UDP (Wi-Fi)
+    Placement placement = Placement::Right;
     // Live, updated once per second.
     double sent_fps = 0, mbps = 0, work_ms = 0, client_decode_ms = 0;
     uint32_t client_dropped = 0;
@@ -79,6 +83,9 @@ public:
     void set_pressure_curve(const PressureCurve& c) { input_.set_pressure_curve(c); }
     // Picture settings from the app (codec, bitrate, fps cap, scale); restarts the video.
     void set_stream_options(const HostOptions& o);
+    // Where the extended screen sits (moved right away).
+    void set_placement(Placement p);
+    std::string device_id() const;
     // Ends the session from the PC side, telling the device why.
     void kick(const std::string& reason);
 
@@ -130,6 +137,7 @@ private:
     mutable std::mutex mu_;
     proto::Hello hello_;
     proto::ClientSettings settings_;
+    Placement placement_ = Placement::Right;
     bool have_monitor_ = false;
 
     std::thread recv_thread_, video_thread_;

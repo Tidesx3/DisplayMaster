@@ -79,9 +79,11 @@ public:
 
     // Give `session_id` a virtual monitor with the requested mode, placed to the
     // right of the desktop. Returns the monitor as it now appears.
-    std::optional<MonitorInfo> acquire(uint32_t session_id, const DisplayModeSpec& mode);
-    // Change the mode of the session's monitor (rotation, fold/unfold).
-    std::optional<MonitorInfo> reconfigure(uint32_t session_id, const DisplayModeSpec& mode);
+    std::optional<MonitorInfo> acquire(uint32_t session_id, const DisplayModeSpec& mode,
+                                       Placement placement = Placement::Right);
+    // Change the mode or position of the session's monitor (rotation, fold/unfold, user choice).
+    std::optional<MonitorInfo> reconfigure(uint32_t session_id, const DisplayModeSpec& mode,
+                                           Placement placement = Placement::Right);
     // Current state of the session's monitor (after driver reloads, GDI names can change).
     std::optional<MonitorInfo> current(uint32_t session_id);
     void release(uint32_t session_id);
@@ -90,10 +92,11 @@ private:
     struct Slot {
         uint32_t session_id = 0;
         DisplayModeSpec mode;
+        Placement placement = Placement::Right;
     };
     std::vector<MonitorInfo> vdd_monitors();  // sorted by target id == slot order
     std::optional<MonitorInfo> wait_for_slot(size_t slot, bool want_active, uint32_t timeout_ms);
-    std::optional<MonitorInfo> apply_mode(size_t slot, const DisplayModeSpec& mode);
+    std::optional<MonitorInfo> apply_mode(size_t slot, const DisplayModeSpec& mode, Placement placement);
     void detach_unused_locked(size_t keep_slot);
     void idle_locked();
 

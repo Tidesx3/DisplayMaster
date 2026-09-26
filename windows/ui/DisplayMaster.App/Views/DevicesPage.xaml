@@ -152,16 +152,21 @@
                                     </TextBlock>
                                 </StackPanel>
 
-                                <Button
-                                    Grid.Column="2"
-                                    VerticalAlignment="Top"
-                                    Click="Disconnect_Click"
-                                    Tag="{x:Bind}">
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <FontIcon FontSize="14" Glyph="&#xE8CD;" />
-                                        <TextBlock Text="Disconnect" />
-                                    </StackPanel>
-                                </Button>
+                                <StackPanel Grid.Column="2" VerticalAlignment="Top" Spacing="8">
+                                    <Button HorizontalAlignment="Stretch" Click="Disconnect_Click" Tag="{x:Bind}">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <FontIcon FontSize="14" Glyph="&#xE8CD;" />
+                                            <TextBlock Text="Disconnect" />
+                                        </StackPanel>
+                                    </Button>
+                                    <!-- Extended screen position, remembered per device -->
+                                    <ComboBox
+                                        MinWidth="190"
+                                        Header="Position"
+                                        ItemsSource="{x:Bind vm:DeviceViewModel.Positions}"
+                                        SelectedItem="{x:Bind Position, Mode=TwoWay}"
+                                        Visibility="{x:Bind IsExtend, Mode=OneWay}" />
+                                </StackPanel>
 
                                 <!-- Live stats -->
                                 <Grid Grid.Row="1" Grid.ColumnSpan="3" ColumnSpacing="12">
