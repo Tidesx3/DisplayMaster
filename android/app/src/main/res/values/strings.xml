@@ -1,4 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DisplayMaster</string>
+
+    <!-- Home -->
+    <string name="tagline">Use this device as a second screen for your PC</string>
+    <string name="usb_title">USB</string>
+    <string name="usb_hint">Plug into your PC. With USB debugging on, the PC starts the stream by itself.</string>
+    <string name="usb_connect">Connect via USB</string>
+    <string name="wifi_title">Wi-Fi</string>
+    <string name="pc_address">PC address</string>
+    <string name="connect">Connect</string>
+    <string name="on_this_network">On this network</string>
+    <string name="recent">Recent</string>
+    <string name="forget_host">Forget %1$s</string>
+    <string name="wifi_hint">Turn on Wi-Fi connections in DisplayMaster on your PC. It shows up here automatically, or enter the address it shows.</string>
+
+    <!-- Preferences -->
+    <string name="preferences">Preferences</string>
+    <string name="display">Display</string>
+    <string name="mode_extend">Extend</string>
+    <string name="mode_mirror">Mirror</string>
+    <string name="finger_input">Finger input</string>
+    <string name="input_touch">Touch</string>
+    <string name="input_mouse">Mouse</string>
+    <string name="input_trackpad">Trackpad</string>
+    <string name="input_pad">Pad</string>
+    <string name="frame_rate">Frame rate</string>
+    <string name="hz">%1$d Hz</string>
+    <string name="overlay_title">Performance overlay</string>
+    <string name="overlay_subtitle">Frame rate, bitrate and latency while streaming</string>
+    <string name="gestures_title">Scroll &amp; zoom gestures</string>
+    <string name="gestures_subtitle">Touch mode: two fingers scroll or pinch to zoom, three-finger swipes: up Task View, down desktop, sideways switch apps</string>
+    <string name="autoconnect_title">Connect automatically</string>
+    <string name="autoconnect_subtitle">When the app is open and a PC you\'ve connected to before is on this Wi-Fi</string>
+    <string name="shortcuts_title">Shortcut bar</string>
+    <string name="shortcuts_subtitle">Undo, Ctrl, Space, brush size… on the left edge while streaming</string>
+    <string name="pen_detected">Pen detected: pressure, tilt, hover and the side button work in Windows Ink apps.</string>
+
+    <!-- Errors and dialogs -->
+    <string name="connection_lost">Connection lost</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="retry">Retry</string>
+    <string name="cancel">Cancel</string>
+    <string name="pair_title">Pair with your PC</string>
+    <string name="pair_text">Check that DisplayMaster on the PC shows the same code. It keeps the connection private.</string>
+    <string name="codes_match">Codes match</string>
+    <string name="codes_differ">They\'re different</string>
+    <string name="confirm_title">Confirm on your PC</string>
+    <string name="confirm_code">Click Allow on the PC if it shows the same code.</string>
+    <string name="confirm_first_time">The first time you connect over Wi-Fi, DisplayMaster on the PC asks to allow this device.</string>
+    <string name="reconnecting_title">Reconnecting</string>
+    <string name="reconnecting_text">The connection to %1$s dropped. Trying again (%2$d)…</string>
+    <string name="your_pc">your PC</string>
+    <string name="connecting_title">Connecting</string>
+    <string name="reaching_usb">Reaching your PC over USB…</string>
+    <string name="reaching">Reaching %1$s…</string>
+
+    <!-- Messages from the connection (native client / PC) -->
+    <string name="err_cant_reach">Can\'t reach %1$s - is DisplayMaster running on the PC?</string>
+    <string name="err_cant_resolve">Can\'t find %1$s</string>
+    <string name="err_pc_closed">The PC closed the connection</string>
+    <string name="err_pc_outdated">The PC\'s DisplayMaster is too old for encrypted Wi-Fi - update DisplayMaster on the PC</string>
+    <string name="err_secure_failed">Secure connection to the PC failed</string>
+    <string name="err_verification">Data from the PC failed verification</string>
+    <string name="err_corrupt">Corrupt data from the PC</string>
+    <string name="err_unexpected">Unexpected reply from the PC</string>
+    <string name="err_decode">This device can\'t decode the video format</string>
+    <string name="err_pairing_cancelled">Pairing cancelled</string>
+    <string name="err_not_approved">Not approved on the PC</string>
+    <string name="err_kicked">Disconnected from the PC</string>
+    <string name="err_app_outdated">Update the DisplayMaster app on this device to connect over Wi-Fi</string>
+    <string name="err_version">DisplayMaster versions don\'t match - update the app on both devices</string>
+    <string name="err_no_video">The PC couldn\'t start the video - see the log on the PC</string>
+
+    <!-- Stream quick panel -->
+    <string name="connected">Connected</string>
+    <string name="your_pc_title">Your PC</string>
+    <string name="lock_rotation">Lock rotation</string>
+    <string name="show_keyboard">Show keyboard</string>
+    <string name="hide_keyboard">Hide keyboard</string>
+    <string name="disconnect">Disconnect</string>
+
+    <!-- Shortcut bar -->
+    <string name="sc_hide">Hide</string>
+    <string name="sc_undo">Undo</string>
+    <string name="sc_redo">Redo</string>
+    <string name="sc_brush_smaller">Brush −</string>
+    <string name="sc_brush_bigger">Brush +</string>
+    <string name="sc_zoom_in">Zoom in</string>
+    <string name="sc_zoom_out">Zoom out</string>
+    <string name="sc_escape">Escape</string>
+    <string name="sc_locked">locked</string>
+    <string name="key_ctrl">Ctrl</string>
+    <string name="key_shift">Shift</string>
+    <string name="key_alt">Alt</string>
+    <string name="key_space">Space</string>
 </resources>

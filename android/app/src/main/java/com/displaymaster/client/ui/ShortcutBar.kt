@@ -1,5 +1,7 @@
 package com.displaymaster.client.ui
 
+import com.displaymaster.client.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.fadeIn
@@ -83,19 +85,19 @@ fun ShortcutBar(client: NativeClient, modifier: Modifier = Modifier) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    ShortcutButton(icon = Icons.Rounded.ChevronLeft, label = "Hide") { expanded = false }
+                    ShortcutButton(icon = Icons.Rounded.ChevronLeft, label = stringResource(R.string.sc_hide)) { expanded = false }
                     Divider()
-                    ShortcutButton(icon = Icons.AutoMirrored.Rounded.Undo, label = "Undo") { client.combo(VK_CONTROL, 'z') }
-                    ShortcutButton(icon = Icons.AutoMirrored.Rounded.Redo, label = "Redo") { client.combo(VK_CONTROL, 'y') }
+                    ShortcutButton(icon = Icons.AutoMirrored.Rounded.Undo, label = stringResource(R.string.sc_undo)) { client.combo(VK_CONTROL, 'z') }
+                    ShortcutButton(icon = Icons.AutoMirrored.Rounded.Redo, label = stringResource(R.string.sc_redo)) { client.combo(VK_CONTROL, 'y') }
                     Divider()
-                    for ((vk, label) in MODIFIERS) ModifierButton(client, vk, label, latched)
+                    for ((vk, label) in MODIFIERS) ModifierButton(client, vk, stringResource(label), latched)
                     Divider()
-                    ShortcutButton(text = "[", label = "Brush −") { client.tap(0, '['.code) }
-                    ShortcutButton(text = "]", label = "Brush +") { client.tap(0, ']'.code) }
+                    ShortcutButton(text = "[", label = stringResource(R.string.sc_brush_smaller)) { client.tap(0, '['.code) }
+                    ShortcutButton(text = "]", label = stringResource(R.string.sc_brush_bigger)) { client.tap(0, ']'.code) }
                     Divider()
-                    ShortcutButton(icon = Icons.Rounded.ZoomIn, label = "Zoom in") { client.combo(VK_CONTROL, vk = VK_OEM_PLUS) }
-                    ShortcutButton(icon = Icons.Rounded.ZoomOut, label = "Zoom out") { client.combo(VK_CONTROL, vk = VK_OEM_MINUS) }
-                    ShortcutButton(text = "Esc", label = "Escape") { client.tap(VK_ESCAPE, 0) }
+                    ShortcutButton(icon = Icons.Rounded.ZoomIn, label = stringResource(R.string.sc_zoom_in)) { client.combo(VK_CONTROL, vk = VK_OEM_PLUS) }
+                    ShortcutButton(icon = Icons.Rounded.ZoomOut, label = stringResource(R.string.sc_zoom_out)) { client.combo(VK_CONTROL, vk = VK_OEM_MINUS) }
+                    ShortcutButton(text = "Esc", label = stringResource(R.string.sc_escape)) { client.tap(VK_ESCAPE, 0) }
                 }
             }
         }
@@ -156,7 +158,7 @@ private fun ModifierButton(client: NativeClient, vk: Int, label: String, latched
     val isLatched = vk in latched
     ShortcutButton(
         text = label,
-        label = if (isLatched) "locked" else "",
+        label = if (isLatched) stringResource(R.string.sc_locked) else "",
         active = pressed || isLatched,
         modifier = Modifier.pointerInput(vk) {
             awaitEachGesture {
@@ -201,4 +203,6 @@ private const val VK_OEM_MINUS = 0xBD
 private const val LATCH_TAP_MS = 300L
 
 // Space: hold to pan in Photoshop, Krita, Clip Studio...
-private val MODIFIERS = listOf(VK_CONTROL to "Ctrl", VK_SHIFT to "Shift", VK_MENU to "Alt", VK_SPACE to "Space")
+private val MODIFIERS = listOf(
+    VK_CONTROL to R.string.key_ctrl, VK_SHIFT to R.string.key_shift, VK_MENU to R.string.key_alt, VK_SPACE to R.string.key_space,
+)

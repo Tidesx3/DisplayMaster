@@ -1,5 +1,7 @@
 package com.displaymaster.client.ui
 
+import androidx.compose.ui.res.stringResource
+import com.displaymaster.client.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -147,7 +149,7 @@ private fun Header() {
         Column {
             Text("DisplayMaster", style = MaterialTheme.typography.headlineMedium)
             Text(
-                "Use this device as a second screen for your PC",
+                stringResource(R.string.tagline),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -168,13 +170,13 @@ private fun UsbCard(onConnect: () -> Unit) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("USB", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
                 Text(
-                    "Plug into your PC. With USB debugging on, the PC starts the stream by itself.",
+                    stringResource(R.string.usb_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f),
                 )
                 Spacer(Modifier.height(8.dp))
                 Button(onClick = onConnect) {
-                    Text("Connect via USB")
+                    Text(stringResource(R.string.usb_connect))
                     Spacer(Modifier.size(8.dp))
                     Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, Modifier.size(18.dp))
                 }
@@ -193,12 +195,12 @@ private fun WifiCard(
 ) {
     var address by rememberSaveable { mutableStateOf("") }
     val valid = address.isNotBlank()
-    SectionCard(title = "Wi-Fi", icon = Icons.Rounded.Wifi) {
+    SectionCard(title = stringResource(R.string.wifi_title), icon = Icons.Rounded.Wifi) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             OutlinedTextField(
                 value = address,
                 onValueChange = { address = it.trim() },
-                label = { Text("PC address") },
+                label = { Text(stringResource(R.string.pc_address)) },
                 placeholder = { Text("192.168.1.20") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
@@ -207,11 +209,11 @@ private fun WifiCard(
             )
             Spacer(Modifier.size(12.dp))
             FilledTonalButton(onClick = { onConnect(address) }, enabled = valid, modifier = Modifier.height(56.dp)) {
-                Text("Connect")
+                Text(stringResource(R.string.connect))
             }
         }
         if (nearby.isNotEmpty()) {
-            Text("On this network", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.on_this_network), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column {
                 nearby.forEachIndexed { i, pc ->
                     if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -219,7 +221,7 @@ private fun WifiCard(
                         headlineContent = { Text(pc.name) },
                         supportingContent = { Text(pc.address) },
                         leadingContent = { Icon(Icons.Rounded.Computer, null, tint = LocalStatusColors.current.connected) },
-                        trailingContent = { Icon(Icons.AutoMirrored.Rounded.ArrowForward, "Connect") },
+                        trailingContent = { Icon(Icons.AutoMirrored.Rounded.ArrowForward, stringResource(R.string.connect)) },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
                         modifier = Modifier.fillMaxWidth().clickable { onConnectNearby(pc) },
                     )
@@ -227,7 +229,7 @@ private fun WifiCard(
             }
         }
         if (recents.isNotEmpty()) {
-            Text("Recent", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.recent), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Column {
                 recents.forEachIndexed { i, host ->
                     if (i > 0) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -237,7 +239,7 @@ private fun WifiCard(
                         leadingContent = { Icon(Icons.Rounded.Computer, null) },
                         trailingContent = {
                             IconButton(onClick = { onForget(host.address) }) {
-                                Icon(Icons.Rounded.Close, "Forget ${host.name}")
+                                Icon(Icons.Rounded.Close, stringResource(R.string.forget_host, host.name))
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
@@ -247,7 +249,7 @@ private fun WifiCard(
             }
         } else if (nearby.isEmpty()) {
             Text(
-                "Turn on Wi-Fi connections in DisplayMaster on your PC. It shows up here automatically, or enter the address it shows.",
+                stringResource(R.string.wifi_hint),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -276,52 +278,52 @@ private fun SwitchRow(
 
 @Composable
 private fun SettingsCard(settings: Settings, hasPen: Boolean, onSettings: ((Settings) -> Settings) -> Unit) {
-    SectionCard(title = "Preferences", icon = Icons.Rounded.Tune) {
+    SectionCard(title = stringResource(R.string.preferences), icon = Icons.Rounded.Tune) {
         ChoiceRow(
-            label = "Display",
-            options = listOf(DisplayMode.Extend to "Extend", DisplayMode.Mirror to "Mirror"),
+            label = stringResource(R.string.display),
+            options = listOf(DisplayMode.Extend to stringResource(R.string.mode_extend), DisplayMode.Mirror to stringResource(R.string.mode_mirror)),
             selected = if (settings.displayMode == DisplayMode.Tablet) DisplayMode.Mirror else settings.displayMode,
             onSelect = { m -> onSettings { it.copy(displayMode = m) } },
             icons = listOf(Icons.Rounded.OpenInFull, Icons.AutoMirrored.Rounded.ScreenShare),
         )
         ChoiceRow(
-            label = "Finger input",
-            options = listOf(TouchMode.Touch to "Touch", TouchMode.Mouse to "Mouse", TouchMode.Trackpad to "Trackpad"),
+            label = stringResource(R.string.finger_input),
+            options = listOf(TouchMode.Touch to stringResource(R.string.input_touch), TouchMode.Mouse to stringResource(R.string.input_mouse), TouchMode.Trackpad to stringResource(R.string.input_trackpad)),
             selected = settings.touchMode,
             onSelect = { m -> onSettings { it.copy(touchMode = m) } },
             icons = listOf(Icons.Rounded.TouchApp, Icons.Rounded.Mouse, Icons.Rounded.Gesture),
         )
         ChoiceRow(
-            label = "Frame rate",
+            label = stringResource(R.string.frame_rate),
             options = listOf(60 to "60 Hz", 90 to "90 Hz", 120 to "120 Hz"),
             selected = settings.maxFps,
             onSelect = { f -> onSettings { it.copy(maxFps = f) } },
         )
         SwitchRow(
             icon = Icons.Rounded.Speed,
-            title = "Performance overlay",
-            subtitle = "Frame rate, bitrate and latency while streaming",
+            title = stringResource(R.string.overlay_title),
+            subtitle = stringResource(R.string.overlay_subtitle),
             checked = settings.showStats,
             onChange = { v -> onSettings { it.copy(showStats = v) } },
         )
         SwitchRow(
             icon = Icons.Rounded.Gesture,
-            title = "Scroll & zoom gestures",
-            subtitle = "Touch mode: two fingers scroll or pinch to zoom, three-finger swipes: up Task View, down desktop, sideways switch apps",
+            title = stringResource(R.string.gestures_title),
+            subtitle = stringResource(R.string.gestures_subtitle),
             checked = settings.touchGestures,
             onChange = { v -> onSettings { it.copy(touchGestures = v) } },
         )
         SwitchRow(
             icon = Icons.Rounded.Wifi,
-            title = "Connect automatically",
-            subtitle = "When the app is open and a PC you've connected to before is on this Wi-Fi",
+            title = stringResource(R.string.autoconnect_title),
+            subtitle = stringResource(R.string.autoconnect_subtitle),
             checked = settings.autoConnect,
             onChange = { v -> onSettings { it.copy(autoConnect = v) } },
         )
         SwitchRow(
             icon = Icons.Rounded.Keyboard,
-            title = "Shortcut bar",
-            subtitle = "Undo, Ctrl, Space, brush size… on the left edge while streaming",
+            title = stringResource(R.string.shortcuts_title),
+            subtitle = stringResource(R.string.shortcuts_subtitle),
             checked = settings.showShortcuts,
             onChange = { v -> onSettings { it.copy(showShortcuts = v) } },
         )
@@ -330,7 +332,7 @@ private fun SettingsCard(settings: Settings, hasPen: Boolean, onSettings: ((Sett
                 Icon(Icons.Rounded.Draw, null, tint = LocalStatusColors.current.pen)
                 Spacer(Modifier.size(12.dp))
                 Text(
-                    "Pen detected: pressure, tilt, hover and the side button work in Windows Ink apps.",
+                    stringResource(R.string.pen_detected),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -346,14 +348,14 @@ private fun ErrorBanner(message: String, onDismiss: () -> Unit, onRetry: (() -> 
             Icon(Icons.Rounded.ErrorOutline, null, tint = MaterialTheme.colorScheme.onErrorContainer)
             Spacer(Modifier.size(12.dp))
             Text(
-                message.ifBlank { "Connection lost" },
+                localizedMessage(message),
                 color = MaterialTheme.colorScheme.onErrorContainer,
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
-            TextButton(onClick = onDismiss) { Text("Dismiss", color = MaterialTheme.colorScheme.onErrorContainer) }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dismiss), color = MaterialTheme.colorScheme.onErrorContainer) }
             if (onRetry != null) {
-                TextButton(onClick = onRetry) { Text("Retry", color = MaterialTheme.colorScheme.onErrorContainer) }
+                TextButton(onClick = onRetry) { Text(stringResource(R.string.retry), color = MaterialTheme.colorScheme.onErrorContainer) }
             }
         }
     }
@@ -379,22 +381,22 @@ private fun ConnectingDialog(state: UiState, onConfirmPairing: (Boolean) -> Unit
                 }
                 Text(
                     when {
-                        state.confirmOnDevice -> "Pair with your PC"
-                        state.awaitingApproval -> "Confirm on your PC"
-                        state.reconnecting > 0 -> "Reconnecting"
-                        else -> "Connecting"
+                        state.confirmOnDevice -> stringResource(R.string.pair_title)
+                        state.awaitingApproval -> stringResource(R.string.confirm_title)
+                        state.reconnecting > 0 -> stringResource(R.string.reconnecting_title)
+                        else -> stringResource(R.string.connecting_title)
                     },
                     style = MaterialTheme.typography.titleLarge,
                 )
                 Text(
                     when {
-                        state.confirmOnDevice -> "Check that DisplayMaster on the PC shows the same code. It keeps the connection private."
-                        state.awaitingApproval && code.isNotEmpty() -> "Click Allow on the PC if it shows the same code."
-                        state.awaitingApproval -> "The first time you connect over Wi-Fi, DisplayMaster on the PC asks to allow this device."
+                        state.confirmOnDevice -> stringResource(R.string.pair_text)
+                        state.awaitingApproval && code.isNotEmpty() -> stringResource(R.string.confirm_code)
+                        state.awaitingApproval -> stringResource(R.string.confirm_first_time)
                         state.reconnecting > 0 ->
-                            "The connection to ${state.hostName.ifBlank { "your PC" }} dropped. Trying again (${state.reconnecting})…"
-                        state.target == "USB" -> "Reaching your PC over USB…"
-                        else -> "Reaching ${state.target}…"
+                            stringResource(R.string.reconnecting_text, state.hostName.ifBlank { stringResource(R.string.your_pc) }, state.reconnecting)
+                        state.target == "USB" -> stringResource(R.string.reaching_usb)
+                        else -> stringResource(R.string.reaching, state.target)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -410,10 +412,10 @@ private fun ConnectingDialog(state: UiState, onConfirmPairing: (Boolean) -> Unit
                     )
                 }
                 if (state.confirmOnDevice) {
-                    Button(onClick = { onConfirmPairing(true) }, modifier = Modifier.fillMaxWidth()) { Text("Codes match") }
-                    TextButton(onClick = { onConfirmPairing(false) }) { Text("They're different") }
+                    Button(onClick = { onConfirmPairing(true) }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(R.string.codes_match)) }
+                    TextButton(onClick = { onConfirmPairing(false) }) { Text(stringResource(R.string.codes_differ)) }
                 } else {
-                    TextButton(onClick = onCancel, colors = ButtonDefaults.textButtonColors()) { Text("Cancel") }
+                    TextButton(onClick = onCancel, colors = ButtonDefaults.textButtonColors()) { Text(stringResource(R.string.cancel)) }
                 }
             }
         }

@@ -1,5 +1,7 @@
 package com.displaymaster.client.ui
 
+import com.displaymaster.client.R
+import androidx.compose.ui.res.stringResource
 import androidx.activity.compose.BackHandler
 import android.app.Activity
 import android.content.pm.ActivityInfo
@@ -215,11 +217,11 @@ private fun QuickPanel(
                 AppLogo(size = 32.dp)
                 Spacer(Modifier.size(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(state.hostName.ifBlank { "Your PC" }, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                    Text(state.hostName.ifBlank { stringResource(R.string.your_pc_title) }, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(8.dp).background(LocalStatusColors.current.connected, CircleShape))
                         Spacer(Modifier.size(6.dp))
-                        Text("Connected", style = MaterialTheme.typography.bodySmall,
+                        Text(stringResource(R.string.connected), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -228,42 +230,42 @@ private fun QuickPanel(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AssistChip(
                         onClick = {},
-                        label = { Text(if (state.usb) "USB" else "Wi-Fi") },
+                        label = { Text(if (state.usb) stringResource(R.string.usb_title) else stringResource(R.string.wifi_title)) },
                         leadingIcon = { Icon(if (state.usb) Icons.Rounded.Usb else Icons.Rounded.Wifi, null, Modifier.size(18.dp)) },
                     )
                     AssistChip(onClick = {}, label = { Text("${v.codecName} · ${v.fps} Hz") })
                 }
             }
             ChoiceRow(
-                label = "Display",
-                options = listOf(DisplayMode.Extend to "Extend", DisplayMode.Mirror to "Mirror"),
+                label = stringResource(R.string.display),
+                options = listOf(DisplayMode.Extend to stringResource(R.string.mode_extend), DisplayMode.Mirror to stringResource(R.string.mode_mirror)),
                 selected = if (settings.displayMode == DisplayMode.Tablet) DisplayMode.Mirror else settings.displayMode,
                 onSelect = { m -> onSettings { it.copy(displayMode = m) } },
                 icons = listOf(Icons.Rounded.OpenInFull, Icons.AutoMirrored.Rounded.ScreenShare),
             )
             ChoiceRow(
-                label = "Finger input",
-                options = listOf(TouchMode.Touch to "Touch", TouchMode.Mouse to "Mouse", TouchMode.Trackpad to "Pad"),
+                label = stringResource(R.string.finger_input),
+                options = listOf(TouchMode.Touch to stringResource(R.string.input_touch), TouchMode.Mouse to stringResource(R.string.input_mouse), TouchMode.Trackpad to stringResource(R.string.input_pad)),
                 selected = settings.touchMode,
                 onSelect = { m -> onSettings { it.copy(touchMode = m) } },
                 icons = listOf(Icons.Rounded.TouchApp, Icons.Rounded.Mouse, Icons.Rounded.Gesture),
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Performance overlay", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.overlay_title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.showStats, onCheckedChange = { v -> onSettings { it.copy(showStats = v) } })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Shortcut bar", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.shortcuts_title), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.showShortcuts, onCheckedChange = { v -> onSettings { it.copy(showShortcuts = v) } })
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Lock rotation", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.lock_rotation), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = rotationLocked, onCheckedChange = onRotationLock)
             }
             FilledTonalButton(onClick = onKeyboard, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.Keyboard, null)
                 Spacer(Modifier.size(8.dp))
-                Text(if (keyboardOn) "Hide keyboard" else "Show keyboard")
+                Text(if (keyboardOn) stringResource(R.string.hide_keyboard) else stringResource(R.string.show_keyboard))
             }
             Button(
                 onClick = onDisconnect,
@@ -275,7 +277,7 @@ private fun QuickPanel(
             ) {
                 Icon(Icons.Rounded.LinkOff, null)
                 Spacer(Modifier.size(8.dp))
-                Text("Disconnect")
+                Text(stringResource(R.string.disconnect))
             }
         }
     }

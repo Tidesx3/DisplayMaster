@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Home -->
+    <string name="tagline">Nutze dieses Gerät als zweiten Bildschirm für deinen PC</string>
+    <string name="usb_title">USB</string>
+    <string name="usb_hint">Mit dem PC verbinden. Ist USB-Debugging an, startet der PC die Übertragung von selbst.</string>
+    <string name="usb_connect">Über USB verbinden</string>
+    <string name="wifi_title">WLAN</string>
+    <string name="pc_address">PC-Adresse</string>
+    <string name="connect">Verbinden</string>
+    <string name="on_this_network">In diesem Netzwerk</string>
+    <string name="recent">Zuletzt verwendet</string>
+    <string name="forget_host">%1$s vergessen</string>
+    <string name="wifi_hint">Schalte in DisplayMaster auf dem PC die WLAN-Verbindungen ein. Der PC erscheint dann hier automatisch, oder gib die angezeigte Adresse ein.</string>
+
+    <!-- Preferences -->
+    <string name="preferences">Einstellungen</string>
+    <string name="display">Anzeige</string>
+    <string name="mode_extend">Erweitern</string>
+    <string name="mode_mirror">Spiegeln</string>
+    <string name="finger_input">Fingereingabe</string>
+    <string name="input_touch">Touch</string>
+    <string name="input_mouse">Maus</string>
+    <string name="input_trackpad">Trackpad</string>
+    <string name="input_pad">Pad</string>
+    <string name="frame_rate">Bildrate</string>
+    <string name="hz">%1$d Hz</string>
+    <string name="overlay_title">Leistungsanzeige</string>
+    <string name="overlay_subtitle">Bildrate, Bitrate und Latenz während der Übertragung</string>
+    <string name="gestures_title">Scroll- &amp; Zoomgesten</string>
+    <string name="gestures_subtitle">Touch-Modus: mit zwei Fingern scrollen oder zoomen, mit drei Fingern wischen: hoch Aufgabenansicht, runter Desktop, seitlich App wechseln</string>
+    <string name="autoconnect_title">Automatisch verbinden</string>
+    <string name="autoconnect_subtitle">Wenn die App offen ist und ein bereits genutzter PC in diesem WLAN ist</string>
+    <string name="shortcuts_title">Tastenleiste</string>
+    <string name="shortcuts_subtitle">Rückgängig, Strg, Leertaste, Pinselgröße… am linken Rand während der Übertragung</string>
+    <string name="pen_detected">Stift erkannt: Druck, Neigung, Schweben und die Seitentaste funktionieren in Windows-Ink-Apps.</string>
+
+    <!-- Errors and dialogs -->
+    <string name="connection_lost">Verbindung verloren</string>
+    <string name="dismiss">Schließen</string>
+    <string name="retry">Erneut versuchen</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="pair_title">Mit dem PC koppeln</string>
+    <string name="pair_text">Prüfe, ob DisplayMaster auf dem PC denselben Code zeigt. So bleibt die Verbindung privat.</string>
+    <string name="codes_match">Codes stimmen überein</string>
+    <string name="codes_differ">Sie sind verschieden</string>
+    <string name="confirm_title">Am PC bestätigen</string>
+    <string name="confirm_code">Klicke am PC auf „Zulassen“, wenn dort derselbe Code steht.</string>
+    <string name="confirm_first_time">Bei der ersten WLAN-Verbindung fragt DisplayMaster auf dem PC, ob dieses Gerät zugelassen wird.</string>
+    <string name="reconnecting_title">Verbindung wird wiederhergestellt</string>
+    <string name="reconnecting_text">Die Verbindung zu %1$s wurde unterbrochen. Neuer Versuch (%2$d)…</string>
+    <string name="your_pc">deinem PC</string>
+    <string name="connecting_title">Verbinden</string>
+    <string name="reaching_usb">PC wird über USB erreicht…</string>
+    <string name="reaching">%1$s wird erreicht…</string>
+
+    <!-- Messages from the connection (native client / PC) -->
+    <string name="err_cant_reach">%1$s ist nicht erreichbar – läuft DisplayMaster auf dem PC?</string>
+    <string name="err_cant_resolve">%1$s wurde nicht gefunden</string>
+    <string name="err_pc_closed">Der PC hat die Verbindung getrennt</string>
+    <string name="err_pc_outdated">DisplayMaster auf dem PC ist zu alt für verschlüsseltes WLAN – bitte auf dem PC aktualisieren</string>
+    <string name="err_secure_failed">Sichere Verbindung zum PC fehlgeschlagen</string>
+    <string name="err_verification">Daten vom PC konnten nicht verifiziert werden</string>
+    <string name="err_corrupt">Beschädigte Daten vom PC</string>
+    <string name="err_unexpected">Unerwartete Antwort vom PC</string>
+    <string name="err_decode">Dieses Gerät kann das Videoformat nicht dekodieren</string>
+    <string name="err_pairing_cancelled">Kopplung abgebrochen</string>
+    <string name="err_not_approved">Am PC nicht zugelassen</string>
+    <string name="err_kicked">Vom PC getrennt</string>
+    <string name="err_app_outdated">Aktualisiere die DisplayMaster-App auf diesem Gerät, um über WLAN zu verbinden</string>
+    <string name="err_version">DisplayMaster-Versionen passen nicht zusammen – bitte auf beiden Geräten aktualisieren</string>
+    <string name="err_no_video">Der PC konnte das Video nicht starten – siehe Protokoll auf dem PC</string>
+
+    <!-- Stream quick panel -->
+    <string name="connected">Verbunden</string>
+    <string name="your_pc_title">Dein PC</string>
+    <string name="lock_rotation">Drehung sperren</string>
+    <string name="show_keyboard">Tastatur einblenden</string>
+    <string name="hide_keyboard">Tastatur ausblenden</string>
+    <string name="disconnect">Trennen</string>
+
+    <!-- Shortcut bar -->
+    <string name="sc_hide">Ausblenden</string>
+    <string name="sc_undo">Rückgängig</string>
+    <string name="sc_redo">Wiederholen</string>
+    <string name="sc_brush_smaller">Pinsel −</string>
+    <string name="sc_brush_bigger">Pinsel +</string>
+    <string name="sc_zoom_in">Vergrößern</string>
+    <string name="sc_zoom_out">Verkleinern</string>
+    <string name="sc_escape">Esc</string>
+    <string name="sc_locked">fest</string>
+    <string name="key_ctrl">Strg</string>
+    <string name="key_shift">Umschalt</string>
+    <string name="key_alt">Alt</string>
+    <string name="key_space">Leertaste</string>
+</resources>
