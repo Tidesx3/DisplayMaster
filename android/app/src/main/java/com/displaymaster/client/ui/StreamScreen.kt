@@ -1,6 +1,11 @@
 package com.displaymaster.client.ui
 
 import androidx.activity.compose.BackHandler
+import android.app.Activity
+import android.content.pm.ActivityInfo
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
@@ -95,6 +100,15 @@ fun StreamScreen(
     val video = state.video ?: return
     var panelOpen by remember { mutableStateOf(false) }
     var keyboardOn by remember { mutableStateOf(false) }
+    // Rotation lock: keep the current orientation while streaming (e.g. drawing with the tablet
+    // on a stand). Released when the stream ends.
+    var rotationLocked by rememberSaveable { mutableStateOf(false) }
+    val activity = LocalContext.current as? Activity
+    DisposableEffect(rotationLocked) {
+        activity?.requestedOrientation =
+            if (rotationLocked) ActivityInfo.SCREEN_ORIENTATION_LOCKED else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
+    }
     // Edge swipes happen by accident while drawing: back toggles the panel instead of leaving.
     BackHandler { panelOpen = !panelOpen }
     // Auto-hide keeps the desktop unobstructed; any settings change restarts the timer.
@@ -140,6 +154,8 @@ fun StreamScreen(
                 state = state,
                 settings = settings,
                 keyboardOn = keyboardOn,
+                rotationLocked = rotationLocked,
+                onRotationLock = { rotationLocked = it },
                 onSettings = onSettings,
                 onKeyboard = { keyboardOn = !keyboardOn; panelOpen = false },
                 onDisconnect = onDisconnect,
@@ -180,6 +196,8 @@ private fun QuickPanel(
     keyboardOn: Boolean,
     onSettings: ((Settings) -> Settings) -> Unit,
     onKeyboard: () -> Unit,
+    rotationLocked: Boolean,
+    onRotationLock: (Boolean) -> Unit,
     onDisconnect: () -> Unit,
 ) {
     Surface(
@@ -237,6 +255,10 @@ private fun QuickPanel(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Shortcut bar", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.showShortcuts, onCheckedChange = { v -> onSettings { it.copy(showShortcuts = v) } })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Lock rotation", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(checked = rotationLocked, onCheckedChange = onRotationLock)
             }
             FilledTonalButton(onClick = onKeyboard, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.Keyboard, null)
