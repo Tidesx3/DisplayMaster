@@ -8,7 +8,7 @@
 
     <ScrollViewer>
         <StackPanel MaxWidth="1040" Padding="40,28,40,40" Spacing="16">
-            <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Connection" />
+            <TextBlock x:Uid="ConnectionPage_1" Style="{StaticResource TitleTextBlockStyle}" />
 
             <!-- USB -->
             <Border Style="{StaticResource CardStyle}">
@@ -19,17 +19,15 @@
                     </Grid.ColumnDefinitions>
                     <FontIcon VerticalAlignment="Top" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xECF0;" />
                     <StackPanel Grid.Column="1" Spacing="6">
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="USB" />
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="Lowest latency and no network setup. Plug in a device with USB debugging enabled and it connects automatically." />
+                        <TextBlock x:Uid="ConnectionPage_2" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Uid="ConnectionPage_3" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         <TextBlock Style="{StaticResource CaptionTextBlockStyle}">
-                            <Run Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Ready over USB: " />
+                            <Run x:Uid="ConnectionPage_4" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                             <Run Text="{x:Bind ViewModel.UsbDevicesText, Mode=OneWay}" />
                         </TextBlock>
-                        <InfoBar
+                        <InfoBar x:Uid="ConnectionPage_5"
                             IsClosable="False"
                             IsOpen="{x:Bind local:Bind.Not(ViewModel.AdbAvailable), Mode=OneWay}"
-                            Message="Android platform-tools (adb) weren't found, so USB connections are off. Reinstall DisplayMaster or install platform-tools."
                             Severity="Warning" />
                     </StackPanel>
                 </Grid>
@@ -45,12 +43,10 @@
                     </Grid.ColumnDefinitions>
                     <FontIcon VerticalAlignment="Top" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE701;" />
                     <StackPanel Grid.Column="1" Spacing="6">
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Wi-Fi" />
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="Connect without a cable on the same network. Use 5 GHz Wi-Fi for the best experience. Only turn this on for networks you trust." />
+                        <TextBlock x:Uid="ConnectionPage_6" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Uid="ConnectionPage_7" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         <StackPanel Margin="0,6,0,0" Spacing="4" Visibility="{x:Bind ViewModel.WifiEnabled, Mode=OneWay}">
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Text="Nearby devices find this PC automatically. You can also enter this address in the app:" TextWrapping="Wrap" />
+                            <TextBlock x:Uid="ConnectionPage_8" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                             <TextBlock FontFamily="Cascadia Mono, Consolas" FontSize="16" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.AddressesText, Mode=OneWay}" />
                             <!-- No cable needed to get the Android app: the phone downloads it from this PC. -->
                             <Grid Margin="0,10,0,0" ColumnSpacing="16" Visibility="{x:Bind ViewModel.HasApkUrl, Mode=OneWay}">
@@ -63,14 +59,13 @@
                                     <Image Width="132" Height="132" Source="{x:Bind local:Bind.QrCode(ViewModel.ApkUrl), Mode=OneWay}" />
                                 </Border>
                                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
-                                    <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Phone doesn't have the app yet?" />
-                                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                               Text="Scan this with the phone's camera to download it from this PC, then open the file to install. Android may ask you to allow installs from your browser once." />
+                                    <TextBlock x:Uid="ConnectionPage_9" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                                    <TextBlock x:Uid="ConnectionPage_10" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                                 </StackPanel>
                             </Grid>
                         </StackPanel>
                         <StackPanel Margin="0,10,0,0" Spacing="6" Visibility="{x:Bind ViewModel.HasTrustedDevices, Mode=OneWay}">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Allowed devices" />
+                            <TextBlock x:Uid="ConnectionPage_11" Style="{StaticResource BodyStrongTextBlockStyle}" />
                             <ItemsRepeater ItemsSource="{x:Bind ViewModel.TrustedDevices}">
                                 <ItemsRepeater.Layout>
                                     <StackLayout Spacing="4" />
@@ -85,19 +80,17 @@
                                             </Grid.ColumnDefinitions>
                                             <FontIcon VerticalAlignment="Center" FontSize="16" Glyph="&#xE70A;" />
                                             <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind Name}" />
-                                            <Button Grid.Column="2" Click="Forget_Click" Content="Forget" Tag="{x:Bind}" />
+                                            <Button x:Uid="ConnectionPage_12" Grid.Column="2" Click="Forget_Click" Tag="{x:Bind}" />
                                         </Grid>
                                     </DataTemplate>
                                 </ItemsRepeater.ItemTemplate>
                             </ItemsRepeater>
                         </StackPanel>
                     </StackPanel>
-                    <ToggleSwitch
+                    <ToggleSwitch x:Uid="ConnectionPage_13"
                         Grid.Column="2"
                         VerticalAlignment="Top"
-                        IsOn="{x:Bind ViewModel.WifiEnabled, Mode=TwoWay}"
-                        OffContent="Off"
-                        OnContent="On" />
+                        IsOn="{x:Bind ViewModel.WifiEnabled, Mode=TwoWay}" />
                 </Grid>
             </Border>
 
@@ -111,23 +104,22 @@
                     </Grid.ColumnDefinitions>
                     <FontIcon VerticalAlignment="Top" FontSize="24" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE7F8;" />
                     <StackPanel Grid.Column="1" Spacing="6">
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Display engine" />
+                        <TextBlock x:Uid="ConnectionPage_14" Style="{StaticResource SubtitleTextBlockStyle}" />
                         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
-                            <Run Text="Virtual display driver: " />
+                            <Run x:Uid="ConnectionPage_15" />
                             <Run Text="{x:Bind local:ConnectionPage.YesNo(ViewModel.VddInstalled, 'installed', 'not installed'), Mode=OneWay}" />
                             <LineBreak />
-                            <Run Text="Administrator rights: " />
+                            <Run x:Uid="ConnectionPage_16" />
                             <Run Text="{x:Bind local:ConnectionPage.YesNo(ViewModel.Elevated, 'yes', 'no'), Mode=OneWay}" />
                             <LineBreak />
-                            <Run Text="Port: " />
+                            <Run x:Uid="ConnectionPage_17" />
                             <Run Text="{x:Bind ViewModel.Port, Mode=OneWay}" />
                         </TextBlock>
                     </StackPanel>
-                    <Button
+                    <Button x:Uid="ConnectionPage_18"
                         Grid.Column="2"
                         VerticalAlignment="Top"
                         Command="{x:Bind ViewModel.RestartAsAdminCommand}"
-                        Content="Restart as administrator"
                         Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.Elevated), Mode=OneWay}" />
                 </Grid>
             </Border>

@@ -7,8 +7,8 @@
     <ScrollViewer>
         <StackPanel MaxWidth="1040" Padding="40,28,40,40" Spacing="16">
             <StackPanel Spacing="2">
-                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Pen &amp; Touch" />
-                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Applies to every connected device, immediately." />
+                <TextBlock x:Uid="PenPage_1" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock x:Uid="PenPage_2" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
             <Border Style="{StaticResource CardStyle}">
@@ -21,46 +21,44 @@
                     <StackPanel Spacing="18">
                         <StackPanel Orientation="Horizontal" Spacing="12">
                             <FontIcon FontSize="22" Foreground="{StaticResource PenBrush}" Glyph="&#xEDC6;" />
-                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Pressure" />
+                            <TextBlock x:Uid="PenPage_3" Style="{StaticResource SubtitleTextBlockStyle}" />
                         </StackPanel>
 
                         <StackPanel Spacing="2">
                             <Grid>
-                                <TextBlock Text="Ignore light pressure below" />
+                                <TextBlock x:Uid="PenPage_4" />
                                 <TextBlock HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                     <Run Text="{x:Bind Pen.MinPercent, Mode=OneWay}" /><Run Text=" %" />
                                 </TextBlock>
                             </Grid>
                             <Slider Maximum="50" Minimum="0" StepFrequency="1" Value="{x:Bind Pen.MinPercent, Mode=TwoWay}" />
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                       Text="Stops accidental marks when the pen barely touches the screen." />
+                            <TextBlock x:Uid="PenPage_5" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </StackPanel>
 
                         <StackPanel Spacing="2">
                             <Grid>
-                                <TextBlock Text="Full pressure at" />
+                                <TextBlock x:Uid="PenPage_6" />
                                 <TextBlock HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}">
                                     <Run Text="{x:Bind Pen.MaxPercent, Mode=OneWay}" /><Run Text=" %" />
                                 </TextBlock>
                             </Grid>
                             <Slider Maximum="100" Minimum="50" StepFrequency="1" Value="{x:Bind Pen.MaxPercent, Mode=TwoWay}" />
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}"
-                                       Text="Lower it to reach the thickest stroke without pressing hard." />
+                            <TextBlock x:Uid="PenPage_7" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                         </StackPanel>
 
                         <StackPanel Spacing="2">
                             <Grid>
-                                <TextBlock Text="Feel" />
+                                <TextBlock x:Uid="PenPage_8" />
                                 <TextBlock HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Pen.FeelText, Mode=OneWay}" />
                             </Grid>
                             <Slider Maximum="100" Minimum="-100" StepFrequency="1" Value="{x:Bind Pen.Feel, Mode=TwoWay}" />
                             <Grid>
-                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="Softer" />
-                                <TextBlock HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="Firmer" />
+                                <TextBlock x:Uid="PenPage_9" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                <TextBlock x:Uid="PenPage_10" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                             </Grid>
                         </StackPanel>
 
-                        <Button Command="{x:Bind Pen.ResetCommand}" Content="Reset to default" />
+                        <Button x:Uid="PenPage_11" Command="{x:Bind Pen.ResetCommand}" />
                     </StackPanel>
 
                     <!-- Live response curve: pen pressure (x) -> pressure sent to apps (y). -->
@@ -74,9 +72,9 @@
                             </Grid>
                         </Border>
                         <Grid>
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Light" />
-                            <TextBlock HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Pen pressure" />
-                            <TextBlock HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Hard" />
+                            <TextBlock x:Uid="PenPage_12" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Uid="PenPage_13" HorizontalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock x:Uid="PenPage_14" HorizontalAlignment="Right" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
                         </Grid>
                     </StackPanel>
                 </Grid>
@@ -84,11 +82,9 @@
 
             <Border Style="{StaticResource CardStyle}">
                 <StackPanel Spacing="8">
-                    <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Works with" />
-                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                               Text="Pressure, tilt, hover and the pen's side button reach apps through Windows Ink: Photoshop, Krita, Clip Studio Paint, OneNote, Illustrator, Blender and more. The side button acts as right-click; the eraser end erases in apps that support it." />
-                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                               Text="On the device, pick how fingers behave from the quick panel (swipe in from the right edge): Touch, Mouse or Trackpad. While the pen is near the screen, touches are ignored so your palm can rest on it." />
+                    <TextBlock x:Uid="PenPage_15" Style="{StaticResource SubtitleTextBlockStyle}" />
+                    <TextBlock x:Uid="PenPage_16" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    <TextBlock x:Uid="PenPage_17" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                 </StackPanel>
             </Border>
         </StackPanel>

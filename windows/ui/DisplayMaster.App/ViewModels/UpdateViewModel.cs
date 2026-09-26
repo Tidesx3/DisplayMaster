@@ -39,21 +39,21 @@ public sealed partial class UpdateViewModel : ObservableObject
     [RelayCommand]
     private async Task CheckNowAsync()
     {
-        CheckResult = "Checking…";
+        CheckResult = Loc.S("Update_Checking");
         try
         {
             var update = await UpdateService.CheckOrThrowAsync();
             if (update is null)
             {
-                CheckResult = "You have the latest version.";
+                CheckResult = Loc.S("Update_Latest");
                 return;
             }
             Show(update);
-            CheckResult = $"Version {update.Version.ToString(3)} is available - see the banner above.";
+            CheckResult = Loc.F("Update_Found", update.Version.ToString(3));
         }
         catch (Exception)
         {
-            CheckResult = "Couldn't reach GitHub. Check the internet connection and try again.";
+            CheckResult = Loc.S("Update_Offline");
         }
     }
 
@@ -68,7 +68,7 @@ public sealed partial class UpdateViewModel : ObservableObject
     private void Show(UpdateInfo update)
     {
         _update = update;
-        Message = $"DisplayMaster {update.Version.ToString(3)} is available (you have {UpdateService.CurrentVersion.ToString(3)}).";
+        Message = Loc.F("Update_Available", update.Version.ToString(3), UpdateService.CurrentVersion.ToString(3));
         OnPropertyChanged(nameof(NotesUrl));
         IsAvailable = true;
     }
@@ -85,11 +85,11 @@ public sealed partial class UpdateViewModel : ObservableObject
             if (UpdateService.RunInstaller(path))
                 InstallerStarted?.Invoke();
             else
-                Error = "The update needs administrator permission.";
+                Error = Loc.S("Update_NeedsAdmin");
         }
         catch (Exception e)
         {
-            Error = $"Update failed: {e.Message}";
+            Error = Loc.F("Update_Failed", e.Message);
         }
         finally
         {

@@ -8,8 +8,8 @@
     <ScrollViewer>
         <StackPanel MaxWidth="1040" Padding="40,28,40,40" Spacing="16">
             <StackPanel Spacing="2">
-                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Settings" />
-                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Picture settings apply to every device right away." />
+                <TextBlock x:Uid="SettingsPage_1" Style="{StaticResource TitleTextBlockStyle}" />
+                <TextBlock x:Uid="SettingsPage_2" Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
             <!-- Picture -->
@@ -17,13 +17,12 @@
                 <StackPanel Spacing="20">
                     <StackPanel Orientation="Horizontal" Spacing="12">
                         <FontIcon FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE7F4;" />
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Picture" />
+                        <TextBlock x:Uid="SettingsPage_3" Style="{StaticResource SubtitleTextBlockStyle}" />
                     </StackPanel>
 
-                    <InfoBar
+                    <InfoBar x:Uid="SettingsPage_4"
                         IsClosable="False"
                         IsOpen="{x:Bind Settings.Locked, Mode=OneWay}"
-                        Message="The engine was started with picture options on its command line; those are used instead."
                         Severity="Informational" />
 
                     <Grid ColumnSpacing="24">
@@ -32,21 +31,18 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2">
-                            <TextBlock Text="Quality" />
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Automatic picks the bitrate from resolution, frame rate and connection (more over USB than Wi-Fi)." />
+                            <TextBlock x:Uid="SettingsPage_5" />
+                            <TextBlock x:Uid="SettingsPage_6" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         </StackPanel>
-                        <ToggleSwitch Grid.Column="1" IsEnabled="{x:Bind Settings.CanEdit, Mode=OneWay}" IsOn="{x:Bind Settings.AutoBitrate, Mode=TwoWay}"
-                                      OffContent="Fixed" OnContent="Automatic" />
+                        <ToggleSwitch x:Uid="SettingsPage_7" Grid.Column="1" IsEnabled="{x:Bind Settings.CanEdit, Mode=OneWay}" IsOn="{x:Bind Settings.AutoBitrate, Mode=TwoWay}" />
                     </Grid>
                     <StackPanel Spacing="2" Visibility="{x:Bind local:Bind.CollapsedIf(Settings.AutoBitrate), Mode=OneWay}">
                         <Grid>
-                            <TextBlock Text="Bitrate" />
+                            <TextBlock x:Uid="SettingsPage_8" />
                             <TextBlock HorizontalAlignment="Right" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Settings.BitrateText, Mode=OneWay}" />
                         </Grid>
                         <Slider IsEnabled="{x:Bind Settings.CanEdit, Mode=OneWay}" Maximum="150" Minimum="5" StepFrequency="5" Value="{x:Bind Settings.BitrateMbps, Mode=TwoWay}" />
-                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap"
-                                   Text="Higher is sharper, especially for text and fast motion. Over Wi-Fi, 20-40 Mbit/s is usually the sweet spot." />
+                        <TextBlock x:Uid="SettingsPage_9" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorTertiaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
 
                     <Grid ColumnSpacing="24">
@@ -55,9 +51,8 @@
                             <ColumnDefinition Width="300" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2">
-                            <TextBlock Text="Frame rate" />
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Never more than the device's screen can show." />
+                            <TextBlock x:Uid="SettingsPage_10" />
+                            <TextBlock x:Uid="SettingsPage_11" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                         <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{x:Bind Settings.CanEdit, Mode=OneWay}"
                                   ItemsSource="{x:Bind Settings.FrameRates}" SelectedItem="{x:Bind Settings.FrameRate, Mode=TwoWay}" />
@@ -69,9 +64,8 @@
                             <ColumnDefinition Width="300" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2">
-                            <TextBlock Text="Resolution" />
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Size of the extended screen compared with the device's display." />
+                            <TextBlock x:Uid="SettingsPage_12" />
+                            <TextBlock x:Uid="SettingsPage_13" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                         <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{x:Bind Settings.CanEdit, Mode=OneWay}"
                                   ItemsSource="{x:Bind Settings.Scales}" SelectedItem="{x:Bind Settings.Scale, Mode=TwoWay}" />
@@ -83,9 +77,8 @@
                             <ColumnDefinition Width="300" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Spacing="2">
-                            <TextBlock Text="Video format" />
-                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                       Text="Used when both the PC and the device support it; otherwise the next best one." />
+                            <TextBlock x:Uid="SettingsPage_14" />
+                            <TextBlock x:Uid="SettingsPage_15" Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                         <ComboBox Grid.Column="1" HorizontalAlignment="Stretch" IsEnabled="{x:Bind Settings.CanEdit, Mode=OneWay}"
                                   ItemsSource="{x:Bind Settings.Codecs}" SelectedItem="{x:Bind Settings.Codec, Mode=TwoWay}" />
@@ -103,9 +96,8 @@
                     </Grid.ColumnDefinitions>
                     <FontIcon VerticalAlignment="Top" FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE7E8;" />
                     <StackPanel Grid.Column="1" Spacing="2">
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Start when I sign in" />
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="DisplayMaster waits in the notification area so devices can connect right away. Off: it only runs while you have it open." />
+                        <TextBlock x:Uid="SettingsPage_16" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Uid="SettingsPage_17" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
                     <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" IsOn="{x:Bind Settings.StartWithWindows, Mode=TwoWay}" />
                 </Grid>
@@ -121,9 +113,8 @@
                     </Grid.ColumnDefinitions>
                     <FontIcon VerticalAlignment="Top" FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xEA8F;" />
                     <StackPanel Grid.Column="1" Spacing="2">
-                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Connection notifications" />
-                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
-                                   Text="A Windows notification when a device connects or disconnects." />
+                        <TextBlock x:Uid="SettingsPage_18" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Uid="SettingsPage_19" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                     </StackPanel>
                     <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" IsOn="{x:Bind Settings.NotifyDevices, Mode=TwoWay}" />
                 </Grid>
@@ -143,9 +134,9 @@
                             <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Settings.VersionText}" />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Spacing="8">
-                            <Button Command="{x:Bind Update.CheckNowCommand}" Content="Check for updates" />
-                            <Button Command="{x:Bind Settings.OpenLogFolderCommand}" Content="Open log folder" />
-                            <HyperlinkButton Command="{x:Bind Settings.OpenProjectPageCommand}" Content="Project page" />
+                            <Button x:Uid="SettingsPage_20" Command="{x:Bind Update.CheckNowCommand}" />
+                            <Button x:Uid="SettingsPage_21" Command="{x:Bind Settings.OpenLogFolderCommand}" />
+                            <HyperlinkButton x:Uid="SettingsPage_22" Command="{x:Bind Settings.OpenProjectPageCommand}" />
                         </StackPanel>
                         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind Update.CheckResult, Mode=OneWay}" TextWrapping="Wrap" />
                     </StackPanel>

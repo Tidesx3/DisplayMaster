@@ -10,45 +10,37 @@
         <StackPanel MaxWidth="1040" Padding="40,28,40,40" Spacing="16">
             <!-- Header -->
             <StackPanel Spacing="2">
-                <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Devices" />
+                <TextBlock x:Uid="DevicesPage_1" Style="{StaticResource TitleTextBlockStyle}" />
                 <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.DeviceCountText, Mode=OneWay}" />
             </StackPanel>
 
             <!-- Setup hints: each explains the problem and offers the fix. -->
-            <InfoBar
-                Title="DisplayMaster engine isn't running"
+            <InfoBar x:Uid="DevicesPage_2"
                 Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.HostReachable), Mode=OneWay}"
                 IsClosable="False"
                 IsOpen="{x:Bind local:Bind.Not(ViewModel.HostReachable), Mode=OneWay}"
-                Message="Starting it now… If this persists, reinstall DisplayMaster."
                 Severity="Error" />
-            <InfoBar
-                Title="Accept USB debugging on your device"
+            <InfoBar x:Uid="DevicesPage_3"
                 Visibility="{x:Bind local:Bind.VisibleIf(ViewModel.UsbPromptPending), Mode=OneWay}"
                 IsClosable="False"
                 IsOpen="{x:Bind ViewModel.UsbPromptPending, Mode=OneWay}"
-                Message="Unlock the tablet or phone and tap Allow on the 'Allow USB debugging?' prompt."
                 Severity="Informational" />
-            <InfoBar
-                Title="Extend mode needs the virtual display driver"
+            <InfoBar x:Uid="DevicesPage_4"
                 Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.VddInstalled), Mode=OneWay}"
                 IsClosable="True"
                 IsOpen="{x:Bind local:Bind.Not(ViewModel.VddInstalled), Mode=OneWay}"
-                Message="Until it's installed, devices mirror your main screen."
                 Severity="Warning">
                 <InfoBar.ActionButton>
-                    <HyperlinkButton Content="How to install" NavigateUri="https://github.com/VirtualDrivers/Virtual-Display-Driver/releases" />
+                    <HyperlinkButton x:Uid="DevicesPage_5" NavigateUri="https://github.com/VirtualDrivers/Virtual-Display-Driver/releases" />
                 </InfoBar.ActionButton>
             </InfoBar>
-            <InfoBar
-                Title="Running without administrator rights"
+            <InfoBar x:Uid="DevicesPage_6"
                 Visibility="{x:Bind local:Bind.CollapsedIf(ViewModel.Elevated), Mode=OneWay}"
                 IsClosable="True"
                 IsOpen="{x:Bind local:Bind.Not(ViewModel.Elevated), Mode=OneWay}"
-                Message="Pen and touch can't reach apps running as administrator, and display settings may be read-only."
                 Severity="Informational">
                 <InfoBar.ActionButton>
-                    <Button Command="{x:Bind ViewModel.RestartAsAdminCommand}" Content="Restart as administrator" />
+                    <Button x:Uid="DevicesPage_7" Command="{x:Bind ViewModel.RestartAsAdminCommand}" />
                 </InfoBar.ActionButton>
             </InfoBar>
 
@@ -67,31 +59,31 @@
                     <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="20">
                         <Image Width="64" Height="64" Source="ms-appx:///Assets/Logo.png" />
                         <StackPanel VerticalAlignment="Center" Spacing="4">
-                            <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Connect a tablet or phone" />
-                            <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="Install DisplayMaster on the Android device, then pick a way to connect." TextWrapping="Wrap" />
+                            <TextBlock x:Uid="DevicesPage_8" Style="{StaticResource SubtitleTextBlockStyle}" />
+                            <TextBlock x:Uid="DevicesPage_9" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
                         </StackPanel>
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <FontIcon FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xECF0;" />
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="USB (fastest)" />
+                            <TextBlock x:Uid="DevicesPage_10" Style="{StaticResource BodyStrongTextBlockStyle}" />
                         </StackPanel>
                         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
-                            <Run Text="1. Turn on USB debugging in Developer options." /><LineBreak />
-                            <Run Text="2. Plug the device into this PC." /><LineBreak />
-                            <Run Text="3. That's it: the app opens and connects by itself." />
+                            <Run x:Uid="DevicesPage_11" /><LineBreak />
+                            <Run x:Uid="DevicesPage_12" /><LineBreak />
+                            <Run x:Uid="DevicesPage_13" />
                         </TextBlock>
                     </StackPanel>
 
                     <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <FontIcon FontSize="18" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE701;" />
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Wi-Fi" />
+                            <TextBlock x:Uid="DevicesPage_14" Style="{StaticResource BodyStrongTextBlockStyle}" />
                         </StackPanel>
                         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap">
-                            <Run Text="1. Allow Wi-Fi connections on the Connection page." /><LineBreak />
-                            <Run Text="2. In the app, enter this PC's address:" />
+                            <Run x:Uid="DevicesPage_15" /><LineBreak />
+                            <Run x:Uid="DevicesPage_16" />
                         </TextBlock>
                         <TextBlock
                             FontFamily="Cascadia Mono, Consolas"
@@ -141,7 +133,7 @@
                                         <Border Style="{StaticResource PillStyle}" Visibility="{x:Bind HasPen, Mode=OneWay}">
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <FontIcon FontSize="12" Foreground="{StaticResource PenBrush}" Glyph="&#xEDC6;" />
-                                                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="Pen" />
+                                                <TextBlock x:Uid="DevicesPage_17" Style="{StaticResource CaptionTextBlockStyle}" />
                                             </StackPanel>
                                         </Border>
                                     </StackPanel>
@@ -156,13 +148,12 @@
                                     <Button HorizontalAlignment="Stretch" Click="Disconnect_Click" Tag="{x:Bind}">
                                         <StackPanel Orientation="Horizontal" Spacing="8">
                                             <FontIcon FontSize="14" Glyph="&#xE8CD;" />
-                                            <TextBlock Text="Disconnect" />
+                                            <TextBlock x:Uid="DevicesPage_18" />
                                         </StackPanel>
                                     </Button>
                                     <!-- Extended screen position, remembered per device -->
-                                    <ComboBox
+                                    <ComboBox x:Uid="DevicesPage_19"
                                         MinWidth="190"
-                                        Header="Position"
                                         ItemsSource="{x:Bind vm:DeviceViewModel.Positions}"
                                         SelectedItem="{x:Bind Position, Mode=TwoWay}"
                                         Visibility="{x:Bind IsExtend, Mode=OneWay}" />
@@ -178,19 +169,19 @@
                                     </Grid.ColumnDefinitions>
                                     <StackPanel>
                                         <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind FpsText, Mode=OneWay}" />
-                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="frames / s" />
+                                        <TextBlock x:Uid="DevicesPage_20" Style="{StaticResource StatLabelStyle}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="1">
                                         <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind BitrateText, Mode=OneWay}" />
-                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="Mbit / s" />
+                                        <TextBlock x:Uid="DevicesPage_21" Style="{StaticResource StatLabelStyle}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind EncodeText, Mode=OneWay}" />
-                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="ms capture + encode" />
+                                        <TextBlock x:Uid="DevicesPage_22" Style="{StaticResource StatLabelStyle}" />
                                     </StackPanel>
                                     <StackPanel Grid.Column="3">
                                         <TextBlock Style="{StaticResource StatValueStyle}" Text="{x:Bind DecodeText, Mode=OneWay}" />
-                                        <TextBlock Style="{StaticResource StatLabelStyle}" Text="ms decode on device" />
+                                        <TextBlock x:Uid="DevicesPage_23" Style="{StaticResource StatLabelStyle}" />
                                     </StackPanel>
                                 </Grid>
                             </Grid>

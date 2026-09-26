@@ -7,6 +7,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
 
+using DisplayMaster.Services;
+
 namespace DisplayMaster;
 
 public partial class App : Application
@@ -49,6 +51,9 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // --lang=de-DE: show the app in another language than Windows' (testing translations).
+        var lang = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--lang="))?["--lang=".Length..];
+        if (!string.IsNullOrEmpty(lang)) Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = lang;
         if (Environment.GetCommandLineArgs().Contains("--smoke-test"))
         {
             SmokeTest();
@@ -89,13 +94,13 @@ public partial class App : Application
         {
             if (_approvalDialogs.Remove(id, out var dialog)) dialog.Hide();
         };
-        ViewModel.DeviceConnected += device => Notify($"{device.Name} connected", $"{device.TransportText} · {device.ModeText}");
-        ViewModel.DeviceDisconnected += name => Notify($"{name} disconnected", "The extra screen is gone; windows moved back.");
+        ViewModel.DeviceConnected += device => Notify(Loc.F("Notify_Connected", device.Name), $"{device.TransportText} · {device.ModeText}");
+        ViewModel.DeviceDisconnected += name => Notify(Loc.F("Notify_Disconnected", name), Loc.S("Notify_DisconnectedText"));
         ViewModel.DevicesChanged += count =>
         {
             RebuildTrayMenu();
             if (_tray is not null)
-                _tray.ToolTipText = count == 0 ? "DisplayMaster" : $"DisplayMaster – {count} device{(count == 1 ? "" : "s")} connected";
+                _tray.ToolTipText = count == 0 ? "DisplayMaster" : Loc.F(count == 1 ? "Tray_OneDevice" : "Tray_Devices", count);
         };
 
         // Started at logon with --tray: stay in the notification area.
@@ -110,6 +115,8 @@ public partial class App : Application
     private void SmokeTest()
     {
         Services.HostClient.LaunchEngine = false;
+        // Texts must resolve (x:Uid and Loc share the app's .pri); a missing one shows its key.
+        if (Loc.S("Tray_Quit") == "Tray_Quit") Environment.Exit(3);
         var dispatcher = DispatcherQueue.GetForCurrentThread();
         ViewModel = new MainViewModel(dispatcher);
         _window = new MainWindow();
@@ -144,19 +151,19 @@ public partial class App : Application
 
         _menu.Items.Clear();
         if (devices.Count == 0)
-            _menu.Items.Add(new MenuFlyoutItem { Text = "No devices connected", IsEnabled = false });
+            _menu.Items.Add(new MenuFlyoutItem { Text = Loc.S("Tray_NoDevices"), IsEnabled = false });
         foreach (var device in devices)
             _menu.Items.Add(new MenuFlyoutItem
             {
-                Text = $"Disconnect {device.Name}",
+                Text = Loc.F("Tray_Disconnect", device.Name),
                 Icon = new FontIcon { Glyph = "\uE8CD" },
                 Command = new RelayCommand(() => ViewModel.DisconnectCommand.Execute(device)),
             });
         _menu.Items.Add(new MenuFlyoutSeparator());
-        _menu.Items.Add(new MenuFlyoutItem { Text = "Open DisplayMaster", Icon = new FontIcon { Glyph = "\uE7F4" }, Command = new RelayCommand(ShowWindow) });
+        _menu.Items.Add(new MenuFlyoutItem { Text = Loc.S("Tray_Open"), Icon = new FontIcon { Glyph = "\uE7F4" }, Command = new RelayCommand(ShowWindow) });
         _menu.Items.Add(new MenuFlyoutItem
         {
-            Text = "Settings",
+            Text = Loc.S("Tray_Settings"),
             Icon = new FontIcon { Glyph = "\uE713" },
             Command = new RelayCommand(() =>
             {
@@ -165,7 +172,7 @@ public partial class App : Application
             }),
         });
         _menu.Items.Add(new MenuFlyoutSeparator());
-        _menu.Items.Add(new MenuFlyoutItem { Text = "Quit", Icon = new FontIcon { Glyph = "\uE7E8" }, Command = new AsyncRelayCommand(QuitAsync) });
+        _menu.Items.Add(new MenuFlyoutItem { Text = Loc.S("Tray_Quit"), Icon = new FontIcon { Glyph = "\uE7E8" }, Command = new AsyncRelayCommand(QuitAsync) });
     }
 
     private void CreateTrayIcon()
@@ -190,12 +197,11 @@ public partial class App : Application
     {
         ShowWindow();
         if (_window?.Content?.XamlRoot is not { } root) return;
-        var remember = new CheckBox { Content = "Remember this device", IsChecked = true };
+        var remember = new CheckBox { Content = Loc.S("Approve_Remember"), IsChecked = true };
         var body = new StackPanel { Spacing = 12 };
         body.Children.Add(new TextBlock
         {
-            Text = $"{device.Name} ({device.Model}) wants to use this PC as a display over Wi-Fi from {device.Address}. " +
-                   "Allowed devices can see this screen and control the mouse and keyboard.",
+            Text = Loc.F("Approve_Text", device.Name, device.Model, device.Address),
             TextWrapping = TextWrapping.Wrap,
         });
         if (!string.IsNullOrEmpty(device.Code))
@@ -203,7 +209,7 @@ public partial class App : Application
             // Same code on both screens = nobody on the network is sitting in between.
             body.Children.Add(new TextBlock
             {
-                Text = "Only allow it if the device shows the same code:",
+                Text = Loc.S("Approve_Code"),
                 TextWrapping = TextWrapping.Wrap,
             });
             body.Children.Add(new TextBlock
@@ -221,10 +227,10 @@ public partial class App : Application
         var dialog = new ContentDialog
         {
             XamlRoot = root,
-            Title = "Allow this device?",
+            Title = Loc.S("Approve_Title"),
             Content = body,
-            PrimaryButtonText = "Allow",
-            CloseButtonText = "Deny",
+            PrimaryButtonText = Loc.S("Approve_Allow"),
+            CloseButtonText = Loc.S("Approve_Deny"),
             DefaultButton = ContentDialogButton.Close,
         };
         _approvalDialogs[device.Id] = dialog;
@@ -241,8 +247,7 @@ public partial class App : Application
         if (_trayHintShown || _tray is null) return;
         // Once per run, so it doesn't look like the app quit (Quit is in the tray menu).
         _trayHintShown = true;
-        _tray.ShowNotification("DisplayMaster is still running",
-            "Connected devices keep working. Open or quit DisplayMaster from its icon in the notification area.");
+        _tray.ShowNotification(Loc.S("Tray_StillRunning"), Loc.S("Tray_StillRunningText"));
     }
 
     private void ShowWindow()

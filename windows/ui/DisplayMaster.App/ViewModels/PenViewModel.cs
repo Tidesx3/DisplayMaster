@@ -33,7 +33,7 @@ public sealed partial class PenViewModel : ObservableObject
     [ObservableProperty] public partial Point[] CurvePoints { get; set; } = [];
 
     public double Gamma => Math.Pow(2.5, Feel / MaxFeel);
-    public string FeelText => Math.Abs(Feel) < 5 ? "Linear" : Feel < 0 ? "Softer – more ink with a light touch" : "Firmer – press harder for thick lines";
+    public string FeelText => Math.Abs(Feel) < 5 ? Loc.S("Feel_Linear") : Feel < 0 ? Loc.S("Feel_Softer") : Loc.S("Feel_Firmer");
 
     public PenViewModel(HostClient host, DispatcherQueue dispatcher)
     {

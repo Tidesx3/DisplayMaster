@@ -28,8 +28,8 @@ public sealed partial class DeviceViewModel : ObservableObject
 
     public static IReadOnlyList<Choice<string>> Positions { get; } =
     [
-        new("right", "Right of my screens"), new("left", "Left of my screens"),
-        new("above", "Above my screens"), new("below", "Below my screens"),
+        new("right", Loc.S("Position_Right")), new("left", Loc.S("Position_Left")),
+        new("above", Loc.S("Position_Above")), new("below", Loc.S("Position_Below")),
     ];
 
     /// <summary>The user picked another position (not raised for updates from the engine).</summary>
@@ -44,7 +44,7 @@ public sealed partial class DeviceViewModel : ObservableObject
     /// <summary>Wi-Fi video over UDP (with loss repair) rather than on the control connection.</summary>
     [ObservableProperty] public partial bool IsUdp { get; set; }
 
-    public string TransportText => IsUsb ? "USB" : IsUdp ? "Wi-Fi · UDP" : "Wi-Fi";
+    public string TransportText => IsUsb ? "USB" : IsUdp ? Loc.S("Transport_WifiUdp") : Loc.S("Transport_Wifi");
     public string TransportGlyph => IsUsb ? Glyphs.Usb : Glyphs.Wifi;
 
     public DeviceViewModel(int id) => Id = id;
@@ -72,9 +72,9 @@ public sealed partial class DeviceViewModel : ObservableObject
         DeviceGlyph = s.Width > 0 && Math.Max(s.Width, s.Height) / (double)Math.Min(s.Width, s.Height) > 1.9
             ? Glyphs.Phone
             : Glyphs.Tablet;
-        ModeText = s.Mode switch { "extend" => "Extended display", "mirror" => "Mirroring", _ => "Pen tablet" };
-        VideoText = s.Streaming ? $"{s.Width} × {s.Height} · {s.Fps} Hz · {s.Codec}" : "Starting…";
-        EncoderText = s.Streaming ? $"{s.Encoder} on {s.Gpu}" : "";
+        ModeText = s.Mode switch { "extend" => Loc.S("Mode_Extend"), "mirror" => Loc.S("Mode_Mirror"), _ => Loc.S("Mode_Tablet") };
+        VideoText = s.Streaming ? $"{s.Width} × {s.Height} · {s.Fps} Hz · {s.Codec}" : Loc.S("Video_Starting");
+        EncoderText = s.Streaming ? Loc.F("Video_Encoder", s.Encoder, s.Gpu) : "";
         FpsText = s.Streaming ? $"{s.SentFps:0}" : "–";
         BitrateText = s.Streaming ? $"{s.Mbps:0.0}" : "–";
         EncodeText = s.Streaming ? $"{s.EncodeMs:0.0}" : "–";
@@ -129,9 +129,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public bool NoDevices => Devices.Count == 0;
     public string DeviceCountText => Devices.Count switch
     {
-        0 => "No devices connected",
-        1 => "1 device connected",
-        var n => $"{n} devices connected",
+        0 => Loc.S("Devices_None"),
+        1 => Loc.S("Devices_One"),
+        var n => Loc.F("Devices_Many", n),
     };
 
     /// <summary>Raised after each poll with the number of connected devices (tray tooltip).</summary>
@@ -179,7 +179,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 AdbAvailable = h.Adb;
                 UsbPromptPending = h.AdbUnauthorized.Count > 0;
                 // The engine lists the best address first; one is all a device needs.
-                AddressesText = h.Addresses.Count > 0 ? h.Addresses[0] : "No network connection";
+                AddressesText = h.Addresses.Count > 0 ? h.Addresses[0] : Loc.S("Network_None");
                 ApkUrl = h.Wifi && h.Addresses.Count > 0 && !string.IsNullOrEmpty(h.ApkPath)
                     ? $"http://{h.Addresses[0]}:{h.Port}{h.ApkPath}"
                     : "";

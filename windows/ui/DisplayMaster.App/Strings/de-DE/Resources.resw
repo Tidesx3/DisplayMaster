@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="MainWindow_1.Content" xml:space="preserve">
+    <value>Geräte</value>
+  </data>
+  <data name="MainWindow_2.Content" xml:space="preserve">
+    <value>Stift &amp; Touch</value>
+  </data>
+  <data name="MainWindow_3.Content" xml:space="preserve">
+    <value>Verbindung</value>
+  </data>
+  <data name="MainWindow_4.Title" xml:space="preserve">
+    <value>Update verfügbar</value>
+  </data>
+  <data name="MainWindow_5.Content" xml:space="preserve">
+    <value>Jetzt aktualisieren</value>
+  </data>
+  <data name="MainWindow_6.Content" xml:space="preserve">
+    <value>Neuerungen</value>
+  </data>
+  <data name="MainWindow_7.Content" xml:space="preserve">
+    <value>Später</value>
+  </data>
+  <data name="DevicesPage_1.Text" xml:space="preserve">
+    <value>Geräte</value>
+  </data>
+  <data name="DevicesPage_2.Title" xml:space="preserve">
+    <value>DisplayMaster-Engine läuft nicht</value>
+  </data>
+  <data name="DevicesPage_2.Message" xml:space="preserve">
+    <value>Sie wird gerade gestartet… Bleibt diese Meldung, installiere DisplayMaster neu.</value>
+  </data>
+  <data name="DevicesPage_3.Title" xml:space="preserve">
+    <value>USB-Debugging auf dem Gerät erlauben</value>
+  </data>
+  <data name="DevicesPage_3.Message" xml:space="preserve">
+    <value>Entsperre Tablet oder Handy und tippe bei „USB-Debugging zulassen?“ auf Zulassen.</value>
+  </data>
+  <data name="DevicesPage_4.Title" xml:space="preserve">
+    <value>Der Erweitern-Modus braucht den virtuellen Anzeigetreiber</value>
+  </data>
+  <data name="DevicesPage_4.Message" xml:space="preserve">
+    <value>Bis er installiert ist, spiegeln Geräte deinen Hauptbildschirm.</value>
+  </data>
+  <data name="DevicesPage_5.Content" xml:space="preserve">
+    <value>So installierst du ihn</value>
+  </data>
+  <data name="DevicesPage_6.Title" xml:space="preserve">
+    <value>Läuft ohne Administratorrechte</value>
+  </data>
+  <data name="DevicesPage_6.Message" xml:space="preserve">
+    <value>Stift und Touch erreichen keine Apps, die als Administrator laufen, und Anzeigeeinstellungen sind evtl. schreibgeschützt.</value>
+  </data>
+  <data name="DevicesPage_7.Content" xml:space="preserve">
+    <value>Als Administrator neu starten</value>
+  </data>
+  <data name="DevicesPage_8.Text" xml:space="preserve">
+    <value>Tablet oder Handy verbinden</value>
+  </data>
+  <data name="DevicesPage_9.Text" xml:space="preserve">
+    <value>Installiere DisplayMaster auf dem Android-Gerät und wähle dann, wie du verbinden willst.</value>
+  </data>
+  <data name="DevicesPage_10.Text" xml:space="preserve">
+    <value>USB (am schnellsten)</value>
+  </data>
+  <data name="DevicesPage_11.Text" xml:space="preserve">
+    <value>1. USB-Debugging in den Entwickleroptionen einschalten.</value>
+  </data>
+  <data name="DevicesPage_12.Text" xml:space="preserve">
+    <value>2. Gerät an diesen PC anschließen.</value>
+  </data>
+  <data name="DevicesPage_13.Text" xml:space="preserve">
+    <value>3. Fertig: Die App öffnet sich und verbindet von selbst.</value>
+  </data>
+  <data name="DevicesPage_14.Text" xml:space="preserve">
+    <value>WLAN</value>
+  </data>
+  <data name="DevicesPage_15.Text" xml:space="preserve">
+    <value>1. WLAN-Verbindungen auf der Seite „Verbindung“ erlauben.</value>
+  </data>
+  <data name="DevicesPage_16.Text" xml:space="preserve">
+    <value>2. In der App die Adresse dieses PCs eingeben:</value>
+  </data>
+  <data name="DevicesPage_17.Text" xml:space="preserve">
+    <value>Stift</value>
+  </data>
+  <data name="DevicesPage_18.Text" xml:space="preserve">
+    <value>Trennen</value>
+  </data>
+  <data name="DevicesPage_19.Header" xml:space="preserve">
+    <value>Position</value>
+  </data>
+  <data name="DevicesPage_20.Text" xml:space="preserve">
+    <value>Bilder / s</value>
+  </data>
+  <data name="DevicesPage_21.Text" xml:space="preserve">
+    <value>Mbit / s</value>
+  </data>
+  <data name="DevicesPage_22.Text" xml:space="preserve">
+    <value>ms Aufnahme + Kodierung</value>
+  </data>
+  <data name="DevicesPage_23.Text" xml:space="preserve">
+    <value>ms Dekodierung am Gerät</value>
+  </data>
+  <data name="PenPage_1.Text" xml:space="preserve">
+    <value>Stift &amp; Touch</value>
+  </data>
+  <data name="PenPage_2.Text" xml:space="preserve">
+    <value>Gilt sofort für alle verbundenen Geräte.</value>
+  </data>
+  <data name="PenPage_3.Text" xml:space="preserve">
+    <value>Druck</value>
+  </data>
+  <data name="PenPage_4.Text" xml:space="preserve">
+    <value>Leichten Druck ignorieren unter</value>
+  </data>
+  <data name="PenPage_5.Text" xml:space="preserve">
+    <value>Verhindert ungewollte Striche, wenn der Stift den Bildschirm kaum berührt.</value>
+  </data>
+  <data name="PenPage_6.Text" xml:space="preserve">
+    <value>Voller Druck ab</value>
+  </data>
+  <data name="PenPage_7.Text" xml:space="preserve">
+    <value>Niedriger einstellen, um ohne festes Drücken die dickste Linie zu erreichen.</value>
+  </data>
+  <data name="PenPage_8.Text" xml:space="preserve">
+    <value>Gefühl</value>
+  </data>
+  <data name="PenPage_9.Text" xml:space="preserve">
+    <value>Weicher</value>
+  </data>
+  <data name="PenPage_10.Text" xml:space="preserve">
+    <value>Fester</value>
+  </data>
+  <data name="PenPage_11.Content" xml:space="preserve">
+    <value>Auf Standard zurücksetzen</value>
+  </data>
+  <data name="PenPage_12.Text" xml:space="preserve">
+    <value>Leicht</value>
+  </data>
+  <data name="PenPage_13.Text" xml:space="preserve">
+    <value>Stiftdruck</value>
+  </data>
+  <data name="PenPage_14.Text" xml:space="preserve">
+    <value>Fest</value>
+  </data>
+  <data name="PenPage_15.Text" xml:space="preserve">
+    <value>Funktioniert mit</value>
+  </data>
+  <data name="PenPage_16.Text" xml:space="preserve">
+    <value>Druck, Neigung, Schweben und die Seitentaste des Stifts erreichen Apps über Windows Ink: Photoshop, Krita, Clip Studio Paint, OneNote, Illustrator, Blender und mehr. Die Seitentaste wirkt als Rechtsklick; das Radiererende radiert in Apps, die das unterstützen.</value>
+  </data>
+  <data name="PenPage_17.Text" xml:space="preserve">
+    <value>Auf dem Gerät legst du im Schnellmenü (vom rechten Rand hereinwischen) fest, wie Finger funktionieren: Touch, Maus oder Trackpad. Solange der Stift in der Nähe ist, werden Berührungen ignoriert, damit die Hand aufliegen kann.</value>
+  </data>
+  <data name="ConnectionPage_1.Text" xml:space="preserve">
+    <value>Verbindung</value>
+  </data>
+  <data name="ConnectionPage_2.Text" xml:space="preserve">
+    <value>USB</value>
+  </data>
+  <data name="ConnectionPage_3.Text" xml:space="preserve">
+    <value>Geringste Latenz, keine Netzwerkeinrichtung. Ein Gerät mit aktiviertem USB-Debugging anschließen, es verbindet sich automatisch.</value>
+  </data>
+  <data name="ConnectionPage_4.Text" xml:space="preserve">
+    <value>Bereit über USB: </value>
+  </data>
+  <data name="ConnectionPage_5.Message" xml:space="preserve">
+    <value>Die Android-Platform-Tools (adb) wurden nicht gefunden, daher ist USB aus. Installiere DisplayMaster neu oder installiere die Platform-Tools.</value>
+  </data>
+  <data name="ConnectionPage_6.Text" xml:space="preserve">
+    <value>WLAN</value>
+  </data>
+  <data name="ConnectionPage_7.Text" xml:space="preserve">
+    <value>Ohne Kabel im selben Netzwerk verbinden. 5-GHz-WLAN funktioniert am besten. Nur in vertrauenswürdigen Netzwerken einschalten.</value>
+  </data>
+  <data name="ConnectionPage_8.Text" xml:space="preserve">
+    <value>Geräte in der Nähe finden diesen PC automatisch. Du kannst auch diese Adresse in der App eingeben:</value>
+  </data>
+  <data name="ConnectionPage_9.Text" xml:space="preserve">
+    <value>Die App ist noch nicht auf dem Handy?</value>
+  </data>
+  <data name="ConnectionPage_10.Text" xml:space="preserve">
+    <value>Scanne das mit der Handykamera, um sie von diesem PC herunterzuladen, und öffne dann die Datei zum Installieren. Android fragt eventuell einmal, ob Installationen aus dem Browser erlaubt sind.</value>
+  </data>
+  <data name="ConnectionPage_11.Text" xml:space="preserve">
+    <value>Zugelassene Geräte</value>
+  </data>
+  <data name="ConnectionPage_12.Content" xml:space="preserve">
+    <value>Vergessen</value>
+  </data>
+  <data name="ConnectionPage_13.OffContent" xml:space="preserve">
+    <value>Aus</value>
+  </data>
+  <data name="ConnectionPage_13.OnContent" xml:space="preserve">
+    <value>An</value>
+  </data>
+  <data name="ConnectionPage_14.Text" xml:space="preserve">
+    <value>Anzeige-Engine</value>
+  </data>
+  <data name="ConnectionPage_15.Text" xml:space="preserve">
+    <value>Virtueller Anzeigetreiber: </value>
+  </data>
+  <data name="ConnectionPage_16.Text" xml:space="preserve">
+    <value>Administratorrechte: </value>
+  </data>
+  <data name="ConnectionPage_17.Text" xml:space="preserve">
+    <value>Port: </value>
+  </data>
+  <data name="ConnectionPage_18.Content" xml:space="preserve">
+    <value>Als Administrator neu starten</value>
+  </data>
+  <data name="SettingsPage_1.Text" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="SettingsPage_2.Text" xml:space="preserve">
+    <value>Bildeinstellungen gelten sofort für alle Geräte.</value>
+  </data>
+  <data name="SettingsPage_3.Text" xml:space="preserve">
+    <value>Bild</value>
+  </data>
+  <data name="SettingsPage_4.Message" xml:space="preserve">
+    <value>Die Engine wurde mit Bildoptionen in der Befehlszeile gestartet; diese werden stattdessen verwendet.</value>
+  </data>
+  <data name="SettingsPage_5.Text" xml:space="preserve">
+    <value>Qualität</value>
+  </data>
+  <data name="SettingsPage_6.Text" xml:space="preserve">
+    <value>Automatisch wählt die Bitrate nach Auflösung, Bildrate und Verbindung (über USB mehr als über WLAN).</value>
+  </data>
+  <data name="SettingsPage_7.OffContent" xml:space="preserve">
+    <value>Fest</value>
+  </data>
+  <data name="SettingsPage_7.OnContent" xml:space="preserve">
+    <value>Automatisch</value>
+  </data>
+  <data name="SettingsPage_8.Text" xml:space="preserve">
+    <value>Bitrate</value>
+  </data>
+  <data name="SettingsPage_9.Text" xml:space="preserve">
+    <value>Höher ist schärfer, vor allem bei Text und schnellen Bewegungen. Über WLAN sind meist 20–40 Mbit/s ideal.</value>
+  </data>
+  <data name="SettingsPage_10.Text" xml:space="preserve">
+    <value>Bildrate</value>
+  </data>
+  <data name="SettingsPage_11.Text" xml:space="preserve">
+    <value>Nie mehr, als der Bildschirm des Geräts darstellen kann.</value>
+  </data>
+  <data name="SettingsPage_12.Text" xml:space="preserve">
+    <value>Auflösung</value>
+  </data>
+  <data name="SettingsPage_13.Text" xml:space="preserve">
+    <value>Größe des erweiterten Bildschirms im Vergleich zur Anzeige des Geräts.</value>
+  </data>
+  <data name="SettingsPage_14.Text" xml:space="preserve">
+    <value>Videoformat</value>
+  </data>
+  <data name="SettingsPage_15.Text" xml:space="preserve">
+    <value>Wird genutzt, wenn PC und Gerät es beide unterstützen; sonst das nächstbeste.</value>
+  </data>
+  <data name="SettingsPage_16.Text" xml:space="preserve">
+    <value>Beim Anmelden starten</value>
+  </data>
+  <data name="SettingsPage_17.Text" xml:space="preserve">
+    <value>DisplayMaster wartet im Infobereich, damit Geräte sofort verbinden können. Aus: Es läuft nur, solange du es geöffnet hast.</value>
+  </data>
+  <data name="SettingsPage_18.Text" xml:space="preserve">
+    <value>Verbindungsbenachrichtigungen</value>
+  </data>
+  <data name="SettingsPage_19.Text" xml:space="preserve">
+    <value>Eine Windows-Benachrichtigung, wenn ein Gerät verbindet oder trennt.</value>
+  </data>
+  <data name="SettingsPage_20.Content" xml:space="preserve">
+    <value>Nach Updates suchen</value>
+  </data>
+  <data name="SettingsPage_21.Content" xml:space="preserve">
+    <value>Protokollordner öffnen</value>
+  </data>
+  <data name="SettingsPage_22.Content" xml:space="preserve">
+    <value>Projektseite</value>
+  </data>
+  <data name="Notify_Connected" xml:space="preserve">
+    <value>{0} verbunden</value>
+  </data>
+  <data name="Notify_DisconnectedText" xml:space="preserve">
+    <value>Der zusätzliche Bildschirm ist weg; die Fenster wurden zurückverschoben.</value>
+  </data>
+  <data name="Notify_Disconnected" xml:space="preserve">
+    <value>{0} getrennt</value>
+  </data>
+  <data name="Tray_OneDevice" xml:space="preserve">
+    <value>DisplayMaster – 1 Gerät verbunden</value>
+  </data>
+  <data name="Tray_Devices" xml:space="preserve">
+    <value>DisplayMaster – {0} Geräte verbunden</value>
+  </data>
+  <data name="Tray_NoDevices" xml:space="preserve">
+    <value>Keine Geräte verbunden</value>
+  </data>
+  <data name="Tray_Disconnect" xml:space="preserve">
+    <value>{0} trennen</value>
+  </data>
+  <data name="Tray_Open" xml:space="preserve">
+    <value>DisplayMaster öffnen</value>
+  </data>
+  <data name="Tray_Settings" xml:space="preserve">
+    <value>Einstellungen</value>
+  </data>
+  <data name="Tray_Quit" xml:space="preserve">
+    <value>Beenden</value>
+  </data>
+  <data name="Approve_Remember" xml:space="preserve">
+    <value>Dieses Gerät merken</value>
+  </data>
+  <data name="Approve_Text" xml:space="preserve">
+    <value>{0} ({1}) möchte diesen PC über WLAN von {2} als Bildschirm nutzen. Zugelassene Geräte sehen diesen Bildschirm und steuern Maus und Tastatur.</value>
+  </data>
+  <data name="Approve_Code" xml:space="preserve">
+    <value>Nur zulassen, wenn das Gerät denselben Code zeigt:</value>
+  </data>
+  <data name="Approve_Title" xml:space="preserve">
+    <value>Dieses Gerät zulassen?</value>
+  </data>
+  <data name="Approve_Allow" xml:space="preserve">
+    <value>Zulassen</value>
+  </data>
+  <data name="Approve_Deny" xml:space="preserve">
+    <value>Ablehnen</value>
+  </data>
+  <data name="Tray_StillRunning" xml:space="preserve">
+    <value>DisplayMaster läuft weiter</value>
+  </data>
+  <data name="Tray_StillRunningText" xml:space="preserve">
+    <value>Verbundene Geräte funktionieren weiter. Öffne oder beende DisplayMaster über das Symbol im Infobereich.</value>
+  </data>
+  <data name="Position_Right" xml:space="preserve">
+    <value>Rechts neben meinen Bildschirmen</value>
+  </data>
+  <data name="Position_Left" xml:space="preserve">
+    <value>Links neben meinen Bildschirmen</value>
+  </data>
+  <data name="Position_Above" xml:space="preserve">
+    <value>Über meinen Bildschirmen</value>
+  </data>
+  <data name="Position_Below" xml:space="preserve">
+    <value>Unter meinen Bildschirmen</value>
+  </data>
+  <data name="Transport_Wifi" xml:space="preserve">
+    <value>WLAN</value>
+  </data>
+  <data name="Transport_WifiUdp" xml:space="preserve">
+    <value>WLAN · UDP</value>
+  </data>
+  <data name="Mode_Extend" xml:space="preserve">
+    <value>Erweiterter Bildschirm</value>
+  </data>
+  <data name="Mode_Mirror" xml:space="preserve">
+    <value>Spiegelung</value>
+  </data>
+  <data name="Mode_Tablet" xml:space="preserve">
+    <value>Grafiktablett</value>
+  </data>
+  <data name="Video_Starting" xml:space="preserve">
+    <value>Startet…</value>
+  </data>
+  <data name="Video_Encoder" xml:space="preserve">
+    <value>{0} auf {1}</value>
+  </data>
+  <data name="Devices_None" xml:space="preserve">
+    <value>Keine Geräte verbunden</value>
+  </data>
+  <data name="Devices_One" xml:space="preserve">
+    <value>1 Gerät verbunden</value>
+  </data>
+  <data name="Devices_Many" xml:space="preserve">
+    <value>{0} Geräte verbunden</value>
+  </data>
+  <data name="Network_None" xml:space="preserve">
+    <value>Keine Netzwerkverbindung</value>
+  </data>
+  <data name="Feel_Linear" xml:space="preserve">
+    <value>Linear</value>
+  </data>
+  <data name="Feel_Softer" xml:space="preserve">
+    <value>Weicher – mehr Farbe bei leichtem Druck</value>
+  </data>
+  <data name="Feel_Firmer" xml:space="preserve">
+    <value>Fester – stärker drücken für dicke Linien</value>
+  </data>
+  <data name="Fps_UpTo" xml:space="preserve">
+    <value>Bis zu {0} fps</value>
+  </data>
+  <data name="Fps_30" xml:space="preserve">
+    <value>Bis zu 30 fps (spart Strom)</value>
+  </data>
+  <data name="Scale_Sharp" xml:space="preserve">
+    <value>Scharf – volle Auflösung des Geräts</value>
+  </data>
+  <data name="Scale_Balanced" xml:space="preserve">
+    <value>Ausgewogen – 75 %</value>
+  </data>
+  <data name="Scale_Fast" xml:space="preserve">
+    <value>Schnell – 50 % (schwache PCs, volles WLAN)</value>
+  </data>
+  <data name="Codec_Auto" xml:space="preserve">
+    <value>Automatisch (empfohlen)</value>
+  </data>
+  <data name="Codec_H264" xml:space="preserve">
+    <value>H.264 (am kompatibelsten)</value>
+  </data>
+  <data name="Codec_Av1" xml:space="preserve">
+    <value>AV1 (neueste Grafikkarten)</value>
+  </data>
+  <data name="About_Version" xml:space="preserve">
+    <value>Version {0}</value>
+  </data>
+  <data name="Update_Checking" xml:space="preserve">
+    <value>Wird geprüft…</value>
+  </data>
+  <data name="Update_Latest" xml:space="preserve">
+    <value>Du hast die neueste Version.</value>
+  </data>
+  <data name="Update_Found" xml:space="preserve">
+    <value>Version {0} ist verfügbar – siehe Hinweis oben.</value>
+  </data>
+  <data name="Update_Offline" xml:space="preserve">
+    <value>GitHub nicht erreichbar. Prüfe die Internetverbindung und versuche es erneut.</value>
+  </data>
+  <data name="Update_Available" xml:space="preserve">
+    <value>DisplayMaster {0} ist verfügbar (installiert: {1}).</value>
+  </data>
+  <data name="Update_NeedsAdmin" xml:space="preserve">
+    <value>Das Update braucht Administratorrechte.</value>
+  </data>
+  <data name="Update_Failed" xml:space="preserve">
+    <value>Update fehlgeschlagen: {0}</value>
+  </data>
+</root>

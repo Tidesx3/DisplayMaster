@@ -27,17 +27,17 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public IReadOnlyList<Choice<int>> FrameRates { get; } =
     [
-        new(120, "Up to 120 fps"), new(90, "Up to 90 fps"), new(60, "Up to 60 fps"), new(30, "Up to 30 fps (saves power)"),
+        new(120, Loc.F("Fps_UpTo", 120)), new(90, Loc.F("Fps_UpTo", 90)), new(60, Loc.F("Fps_UpTo", 60)), new(30, Loc.S("Fps_30")),
     ];
 
     public IReadOnlyList<Choice<double>> Scales { get; } =
     [
-        new(1.0, "Sharp - the device's full resolution"), new(0.75, "Balanced - 75 %"), new(0.5, "Fast - 50 % (weak PCs, busy Wi-Fi)"),
+        new(1.0, Loc.S("Scale_Sharp")), new(0.75, Loc.S("Scale_Balanced")), new(0.5, Loc.S("Scale_Fast")),
     ];
 
     public IReadOnlyList<Choice<string>> Codecs { get; } =
     [
-        new("auto", "Automatic (recommended)"), new("hevc", "HEVC (H.265)"), new("h264", "H.264 (most compatible)"), new("av1", "AV1 (newest GPUs)"),
+        new("auto", Loc.S("Codec_Auto")), new("hevc", "HEVC (H.265)"), new("h264", Loc.S("Codec_H264")), new("av1", Loc.S("Codec_Av1")),
     ];
 
     [ObservableProperty] public partial bool AutoBitrate { get; set; } = true;
@@ -55,7 +55,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public bool CanEdit => !Locked;
     public string BitrateText => $"{BitrateMbps:0} Mbit/s";
-    public string VersionText => $"Version {UpdateService.CurrentVersion.ToString(3)}";
+    public string VersionText => Loc.F("About_Version", UpdateService.CurrentVersion.ToString(3));
 
     public SettingsViewModel(HostClient host, DispatcherQueue dispatcher)
     {
