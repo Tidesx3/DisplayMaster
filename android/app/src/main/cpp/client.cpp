@@ -211,6 +211,11 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello, std::optio
     {
         std::lock_guard lock(pair_mu_);
         if (need_confirmation_) hello.flags |= proto::kHelloConfirmPairing;  // the PC shows its code too
+        // Declined before Hello (auto-connect to an unknown PC): leave without the PC asking anyone.
+        if (need_confirmation_ && pair_decision_ == 0) {
+            end_reason = "Pairing cancelled";
+            running_ = false;
+        }
     }
     if (running_) {
         if (identity) open_udp_socket(hello);  // Wi-Fi: offer a UDP port for video

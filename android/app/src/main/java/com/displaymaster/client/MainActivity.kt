@@ -122,15 +122,21 @@ class MainActivity : ComponentActivity() {
         connect(host, port ?: Proto.DEFAULT_PORT, Proto.TRANSPORT_WIFI)
     }
 
-    // Look for PCs on the network while the app is visible.
+    // Look for PCs on the network while the app is visible; reconnects build their Hello here.
     override fun onStart() {
         super.onStart()
+        vm.helloProvider = { transport -> DeviceInfo.hello(this, transport, posture) }
         vm.discovery.start()
     }
 
     override fun onStop() {
         vm.discovery.stop()
         super.onStop()
+    }
+
+    override fun onDestroy() {
+        vm.helloProvider = null  // don't keep this activity alive through the view model
+        super.onDestroy()
     }
 
     private fun applyImmersive(on: Boolean) {

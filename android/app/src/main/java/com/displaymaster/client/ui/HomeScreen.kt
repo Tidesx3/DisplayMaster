@@ -305,6 +305,13 @@ private fun SettingsCard(settings: Settings, hasPen: Boolean, onSettings: ((Sett
             onChange = { v -> onSettings { it.copy(showStats = v) } },
         )
         SwitchRow(
+            icon = Icons.Rounded.Wifi,
+            title = "Connect automatically",
+            subtitle = "When the app is open and a PC you've connected to before is on this Wi-Fi",
+            checked = settings.autoConnect,
+            onChange = { v -> onSettings { it.copy(autoConnect = v) } },
+        )
+        SwitchRow(
             icon = Icons.Rounded.Keyboard,
             title = "Shortcut bar",
             subtitle = "Undo, Ctrl, Space, brush size… on the left edge while streaming",
@@ -367,6 +374,7 @@ private fun ConnectingDialog(state: UiState, onConfirmPairing: (Boolean) -> Unit
                     when {
                         state.confirmOnDevice -> "Pair with your PC"
                         state.awaitingApproval -> "Confirm on your PC"
+                        state.reconnecting > 0 -> "Reconnecting"
                         else -> "Connecting"
                     },
                     style = MaterialTheme.typography.titleLarge,
@@ -376,6 +384,8 @@ private fun ConnectingDialog(state: UiState, onConfirmPairing: (Boolean) -> Unit
                         state.confirmOnDevice -> "Check that DisplayMaster on the PC shows the same code. It keeps the connection private."
                         state.awaitingApproval && code.isNotEmpty() -> "Click Allow on the PC if it shows the same code."
                         state.awaitingApproval -> "The first time you connect over Wi-Fi, DisplayMaster on the PC asks to allow this device."
+                        state.reconnecting > 0 ->
+                            "The connection to ${state.hostName.ifBlank { "your PC" }} dropped. Trying again (${state.reconnecting})…"
                         state.target == "USB" -> "Reaching your PC over USB…"
                         else -> "Reaching ${state.target}…"
                     },
