@@ -50,7 +50,7 @@ public:
         jclass cls = env->GetObjectClass(obj);
         on_state_ = env->GetMethodID(cls, "onNativeState", "(ILjava/lang/String;)V");
         on_config_ = env->GetMethodID(cls, "onNativeVideoConfig", "(IIIIIFFFFI)V");
-        on_stats_ = env->GetMethodID(cls, "onNativeStats", "(FFFFI)V");
+        on_stats_ = env->GetMethodID(cls, "onNativeStats", "(FFFFIZI)V");
         is_known_pc_ = env->GetMethodID(cls, "isNativeKnownPc", "(Ljava/lang/String;)Z");
         on_pairing_ = env->GetMethodID(cls, "onNativePairing", "(Ljava/lang/String;Ljava/lang/String;)V");
     }
@@ -73,7 +73,8 @@ public:
     }
     void on_stats(const Stats& s) override {
         JniEnv env;
-        env->CallVoidMethod(obj_, on_stats_, s.fps, s.mbps, s.rtt_ms, s.decode_ms, static_cast<jint>(s.dropped));
+        env->CallVoidMethod(obj_, on_stats_, s.fps, s.mbps, s.rtt_ms, s.decode_ms, static_cast<jint>(s.dropped),
+                            static_cast<jboolean>(s.udp), static_cast<jint>(s.lost_frames));
     }
 
     bool is_known_pc(const std::string& pc_key) override {

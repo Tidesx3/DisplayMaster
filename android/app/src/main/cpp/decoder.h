@@ -25,6 +25,8 @@ public:
 
     enum class Feed { Ok, NeedKeyframe, Dropped, Error };
     Feed feed(const proto::VideoFrame& f);
+    // A frame went missing (UDP): later frames refer to it, so wait for the next keyframe.
+    void resync() { waiting_for_key_ = true; }
 
     // Stats since last call.
     struct Stats {

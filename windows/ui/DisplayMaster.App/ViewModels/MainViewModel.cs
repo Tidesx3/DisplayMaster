@@ -24,10 +24,15 @@ public sealed partial class DeviceViewModel : ObservableObject
     [ObservableProperty] public partial string DecodeText { get; set; } = "–";
     [ObservableProperty] public partial string DeviceGlyph { get; set; } = Glyphs.Tablet;
 
-    public string TransportText => IsUsb ? "USB" : "Wi-Fi";
+    /// <summary>Wi-Fi video over UDP (with loss repair) rather than on the control connection.</summary>
+    [ObservableProperty] public partial bool IsUdp { get; set; }
+
+    public string TransportText => IsUsb ? "USB" : IsUdp ? "Wi-Fi · UDP" : "Wi-Fi";
     public string TransportGlyph => IsUsb ? Glyphs.Usb : Glyphs.Wifi;
 
     public DeviceViewModel(int id) => Id = id;
+
+    partial void OnIsUdpChanged(bool value) => OnPropertyChanged(nameof(TransportText));
 
     partial void OnIsUsbChanged(bool value)
     {
@@ -40,6 +45,7 @@ public sealed partial class DeviceViewModel : ObservableObject
         Name = s.Name;
         Model = s.Model;
         IsUsb = s.Transport == "usb";
+        IsUdp = s.Udp;
         Streaming = s.Streaming;
         HasPen = s.Pen;
         DeviceGlyph = s.Width > 0 && Math.Max(s.Width, s.Height) / (double)Math.Min(s.Width, s.Height) > 1.9

@@ -1,6 +1,7 @@
 #include "client.h"
 
 #include <android/log.h>
+#include <arpa/inet.h>
 #include <android/native_window.h>
 #include <errno.h>
 #include <netdb.h>
@@ -211,7 +212,10 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello, std::optio
         std::lock_guard lock(pair_mu_);
         if (need_confirmation_) hello.flags |= proto::kHelloConfirmPairing;  // the PC shows its code too
     }
-    if (running_) send(hello);
+    if (running_) {
+        if (identity) open_udp_socket(hello);  // Wi-Fi: offer a UDP port for video
+        send(hello);
+    }
     stats_start_us_ = last_ping_us_ = mono_us();
     bytes_ = 0;
 
@@ -277,6 +281,11 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello, std::optio
         shutdown(fd, SHUT_RDWR);
         close(fd);
     }
+    stop_udp();
+    if (udp_fd_ >= 0) {
+        close(udp_fd_);
+        udp_fd_ = -1;
+    }
     {
         std::lock_guard lock(send_mu_);
         channel_.reset();
@@ -307,6 +316,12 @@ void Client::handle(const proto::RawMessage& m) {
                 listener_->on_state(ClientListener::kStreaming, "");
             }
             break;
+        case proto::MsgType::VideoTransport:
+            if (auto t = proto::decode<proto::VideoTransport>(m.payload)) {
+                if (t->udp) start_udp(*t);
+                else stop_udp();
+            }
+            break;
         case proto::MsgType::Pong:
             if (auto p = proto::decode<proto::Pong>(m.payload))
                 rtt_ms_ = static_cast<float>(mono_us() - p->echo_time_us) / 1000.0f;
@@ -325,12 +340,79 @@ void Client::on_frame(const proto::VideoFrame& f) {
         if (!decoder_.ready()) return;  // no surface yet; a keyframe is requested once it exists
         r = decoder_.feed(f);
     }
-    if (r == Decoder::Feed::NeedKeyframe) {
-        // Rate-limited: the host answers within a frame or two.
+    if (r == Decoder::Feed::NeedKeyframe) request_keyframe();
+}
+
+void Client::request_keyframe() {
+    // Rate-limited: the host answers within a frame or two.
+    const uint64_t now = mono_us();
+    uint64_t last = last_key_request_us_;
+    if (now - last > 200000 && last_key_request_us_.compare_exchange_strong(last, now)) send(proto::RequestKeyframe{});
+}
+
+void Client::open_udp_socket(proto::Hello& hello) {
+    udp_fd_ = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udp_fd_ < 0) return;
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    int rcvbuf = 8 * 1024 * 1024;  // a keyframe arrives as a few hundred datagrams
+    setsockopt(udp_fd_, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof rcvbuf);
+    timeval tick{0, 100000};
+    setsockopt(udp_fd_, SOL_SOCKET, SO_RCVTIMEO, &tick, sizeof tick);
+    socklen_t len = sizeof a;
+    if (bind(udp_fd_, reinterpret_cast<sockaddr*>(&a), sizeof a) != 0 ||
+        getsockname(udp_fd_, reinterpret_cast<sockaddr*>(&a), &len) != 0) {
+        close(udp_fd_);
+        udp_fd_ = -1;
+        return;
+    }
+    hello.udp_port = ntohs(a.sin_port);
+}
+
+void Client::start_udp(const proto::VideoTransport& t) {
+    if (udp_fd_ < 0) return;
+    stop_udp();
+    udp_on_ = true;
+    udp_thread_ = std::thread([this, key = t.key] { udp_loop(key); });
+    LOGI("video over UDP");
+}
+
+void Client::stop_udp() {
+    udp_on_ = false;
+    if (udp_thread_.joinable() && udp_thread_.get_id() != std::this_thread::get_id()) udp_thread_.join();
+}
+
+void Client::udp_loop(udp::Key key) {
+    const udp::Cipher cipher(key);
+    udp::FrameAssembler assembler;
+    std::vector<uint8_t> datagram(2048), plain;
+    uint64_t last_packet_us = mono_us();
+    while (running_ && udp_on_) {
+        const ssize_t n = recv(udp_fd_, datagram.data(), datagram.size(), 0);
         const uint64_t now = mono_us();
-        if (now - last_key_request_us_ > 200000) {
-            last_key_request_us_ = now;
-            send(proto::RequestKeyframe{});
+        uint64_t seq = 0;
+        if (n > 0 && cipher.open(std::span<const uint8_t>(datagram.data(), static_cast<size_t>(n)), plain, seq)) {
+            last_packet_us = now;
+            bytes_ += static_cast<uint64_t>(n);
+            assembler.add(plain, now);
+        }
+        proto::VideoFrame f;
+        while (assembler.pop(f, now)) on_frame(f);
+        if (const uint32_t lost = assembler.take_lost()) {
+            udp_lost_ += lost;
+            {
+                std::lock_guard lock(dec_mu_);
+                decoder_.resync();
+            }
+            request_keyframe();
+        }
+        udp_recovered_ += assembler.take_recovered();
+        if (now - last_packet_us > 2000000) {
+            // Nothing gets through (router, firewall): ask for video on the control connection.
+            LOGI("no UDP video arriving - falling back to TCP");
+            send(proto::UdpFallback{});
+            udp_on_ = false;
         }
     }
 }
@@ -354,8 +436,12 @@ void Client::tick_stats() {
     s.rtt_ms = rtt_ms_;
     s.decode_ms = static_cast<float>(ds.avg_decode_us) / 1000.0f;
     s.dropped = ds.dropped;
+    s.udp = udp_on_;
+    const uint32_t lost = udp_lost_.exchange(0);
+    s.lost_frames = lost;
     listener_->on_stats(s);
-    send(proto::ClientStats{ds.decoded, ds.dropped, ds.avg_decode_us, static_cast<uint32_t>(elapsed / 1000)});
+    send(proto::ClientStats{ds.decoded, ds.dropped, ds.avg_decode_us, static_cast<uint32_t>(elapsed / 1000), lost,
+                            udp_recovered_.exchange(0)});
     stats_start_us_ = now;
     bytes_ = 0;
 }

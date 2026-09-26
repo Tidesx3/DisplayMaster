@@ -13,6 +13,7 @@
 #include "decoder.h"
 #include "dm/noise.h"
 #include "dm/protocol.h"
+#include "dm/udp_video.h"
 
 struct ANativeWindow;
 
@@ -31,6 +32,8 @@ public:
     struct Stats {
         float fps = 0, mbps = 0, rtt_ms = 0, decode_ms = 0;
         uint32_t dropped = 0;
+        bool udp = false;          // video arrives over UDP (Wi-Fi)
+        uint32_t lost_frames = 0;  // UDP frames that couldn't be rebuilt (this interval)
     };
     virtual void on_stats(const Stats& s) = 0;
     // Wi-Fi, after the encrypted handshake: true if this device paired with the PC whose
@@ -71,6 +74,17 @@ private:
     void reconfigure_decoder_locked();
     void send_raw(const std::vector<uint8_t>& data);
     void tick_stats();
+    void request_keyframe();  // rate-limited, any thread
+
+    // Video over UDP (Wi-Fi): own socket and thread; the control connection stays on TCP.
+    void open_udp_socket(proto::Hello& hello);
+    void start_udp(const proto::VideoTransport& t);
+    void stop_udp();
+    void udp_loop(udp::Key key);
+    int udp_fd_ = -1;
+    std::thread udp_thread_;
+    std::atomic<bool> udp_on_{false};
+    std::atomic<uint32_t> udp_lost_{0}, udp_recovered_{0};  // since the last stats message
 
     ClientListener* listener_;
     std::thread thread_;
@@ -93,9 +107,10 @@ private:
     uint16_t sdk_int_ = 0;
 
     // Stats (receive thread only).
-    uint64_t stats_start_us_ = 0, last_ping_us_ = 0, bytes_ = 0;
+    uint64_t stats_start_us_ = 0, last_ping_us_ = 0;
+    std::atomic<uint64_t> bytes_{0};  // TCP and UDP
     std::atomic<float> rtt_ms_{0};
-    uint64_t last_key_request_us_ = 0;
+    std::atomic<uint64_t> last_key_request_us_{0};
 };
 
 }  // namespace dm

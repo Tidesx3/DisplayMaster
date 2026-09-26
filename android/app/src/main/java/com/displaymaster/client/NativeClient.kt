@@ -72,7 +72,11 @@ data class VideoConfig(
         }
 }
 
-data class StreamStats(val fps: Float, val mbps: Float, val rttMs: Float, val decodeMs: Float, val dropped: Int)
+data class StreamStats(
+    val fps: Float, val mbps: Float, val rttMs: Float, val decodeMs: Float, val dropped: Int,
+    val udp: Boolean = false,   // video over UDP (Wi-Fi)
+    val lostFrames: Int = 0,    // UDP frames lost in the last second
+)
 
 /**
  * Thin JNI wrapper over the C++ client (android/app/src/main/cpp). Callbacks arrive on
@@ -149,8 +153,8 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     )
 
     @Suppress("unused")
-    private fun onNativeStats(fps: Float, mbps: Float, rttMs: Float, decodeMs: Float, dropped: Int) =
-        listener.onStats(StreamStats(fps, mbps, rttMs, decodeMs, dropped))
+    private fun onNativeStats(fps: Float, mbps: Float, rttMs: Float, decodeMs: Float, dropped: Int, udp: Boolean, lost: Int) =
+        listener.onStats(StreamStats(fps, mbps, rttMs, decodeMs, dropped, udp, lost))
 
     @Suppress("unused")
     private fun isNativeKnownPc(pcKey: String): Boolean = listener.isKnownPc(pcKey)

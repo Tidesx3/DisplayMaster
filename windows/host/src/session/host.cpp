@@ -336,6 +336,8 @@ std::string Host::status_json() {
             .field("name", st.device_name)
             .field("model", st.model)
             .field("transport", st.usb ? "usb" : "wifi")
+            .field("udp", st.udp)
+            .field("udp_lost_frames", st.udp_lost_frames)
             .field("streaming", st.streaming)
             .field("mode", mode_name(st.mode))
             .field("codec", codec_name(st.codec))

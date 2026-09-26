@@ -31,7 +31,8 @@ public sealed record MonitorRect(int X, int Y, int W, int H);
 public sealed record SessionInfo(
     int Id, string Name, string Model, string Transport, bool Streaming, string Mode, string Codec,
     int Width, int Height, int Fps, int BitrateKbps, string Encoder, string Gpu, string Monitor, bool Pen,
-    double SentFps, double Mbps, double EncodeMs, double DecodeMs, int Dropped, MonitorRect Rect);
+    double SentFps, double Mbps, double EncodeMs, double DecodeMs, int Dropped, MonitorRect Rect,
+    bool Udp = false, int UdpLostFrames = 0);
 
 /// <summary>
 /// Talks to DisplayMasterHost.exe over \\.\pipe\DisplayMaster.Control (one JSON request,

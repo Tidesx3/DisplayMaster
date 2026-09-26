@@ -268,6 +268,7 @@ private fun StatsPill(state: UiState, modifier: Modifier = Modifier) {
                 if (v != null) append("${v.codecName} ${v.width}×${v.height}  ·  ")
                 append("%.0f fps  ·  %.1f Mbps  ·  RTT %.1f ms  ·  decode %.1f ms".format(s.fps, s.mbps, s.rttMs, s.decodeMs))
                 if (s.dropped > 0) append("  ·  ${s.dropped} dropped")
+                if (s.udp) append(if (s.lostFrames > 0) "  ·  UDP, ${s.lostFrames} lost" else "  ·  UDP")
             },
             style = StatsTextStyle,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
