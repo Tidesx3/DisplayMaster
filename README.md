@@ -127,6 +127,11 @@ Other flags: `--mode extend|mirror`, `--codec h264|hevc|av1`, `--encoder nvenc|a
 | Zero-setup USB (AOA, no USB debugging) | ⏳ planned (M5) |
 | Encrypted Wi-Fi with pairing codes (Noise XX, verified against the official test vectors) | ✅ verified (emulator + simulated devices) |
 | Wi-Fi video over UDP with Reed-Solomon loss repair (adaptive parity), automatic TCP fallback | ✅ verified with simulated loss up to 40 % (test client), fallback on the emulator |
+| Lost frames repaired by recovery frames (NVENC reference invalidation, HEVC/AV1) instead of keyframes | ✅ verified with NVENC at 15 % simulated loss; keyframe fallback on AMF / H.264 |
+| Auto-reconnect after drops / engine restarts; optional auto-connect to known PCs | ✅ verified on the emulator (engine restart, kick from the PC) |
+| Touch mode gestures: 2-finger scroll / pinch-zoom, 3-finger swipes (Task View, desktop, switch app) | ✅ unit-tested |
+| Screen position per device (left / right / above / below) | ✅ placement unit-tested, API verified |
+| Tray menu with devices, connect/disconnect notifications, rotation lock, German translation (both apps) | ✅ |
 | Shortcut bar for drawing apps (undo/redo, Ctrl/Shift/Alt/Space hold or latch, brush size, zoom, Esc) | ✅ keys verified in the engine's input log |
 | Settings page: bitrate, frame-rate cap, resolution, video format, start at sign-in | ✅ |
 | Wintab driver, pen button remapping | ⏳ planned (M7) |
