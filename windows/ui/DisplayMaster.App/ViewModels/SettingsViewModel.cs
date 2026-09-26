@@ -58,16 +58,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     public SettingsViewModel(HostClient host, DispatcherQueue dispatcher)
     {
         _host = host;
-        FrameRate = FrameRates[0];
-        Scale = Scales[0];
-        Codec = Codecs[0];
+        // The timer first: setting a property below counts as a change and would use it.
         _debounce = dispatcher.CreateTimer();
         _debounce.Interval = TimeSpan.FromMilliseconds(400);
         _debounce.IsRepeating = false;
         _debounce.Tick += async (_, _) => await _host.SetStreamAsync(
             AutoBitrate ? 0 : (int)Math.Round(BitrateMbps * 1000), FrameRate?.Value ?? 120, Scale?.Value ?? 1.0,
             Codec?.Value ?? "auto");
+        // Defaults until the engine reports its saved values: not changes to send.
         _applying = true;
+        FrameRate = FrameRates[0];
+        Scale = Scales[0];
+        Codec = Codecs[0];
         StartWithWindows = ReadAutostart();
         _applying = false;
     }

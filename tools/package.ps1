@@ -85,6 +85,11 @@ $env:DOTNET_ROOT = Split-Path $dotnet
 if ($LASTEXITCODE) { throw 'app publish failed' }
 # Without its PRI (compiled XAML) the app crashes at startup - never ship that.
 if (-not (Test-Path "$Out\DisplayMaster.pri")) { throw 'app publish is missing DisplayMaster.pri' }
+# Start the published app for real (hidden: every page, no engine, no window) - a crash at
+# startup must fail here, not on users' PCs.
+$smoke = Start-Process "$Out\DisplayMaster.exe" -ArgumentList '--smoke-test' -PassThru
+if (-not $smoke.WaitForExit(60000)) { $smoke.Kill(); throw 'app smoke test hung' }
+if ($smoke.ExitCode -ne 0) { throw "app crashed at startup (exit code $($smoke.ExitCode)) - see %LOCALAPPDATA%\DisplayMaster\app-crash.log" }
 
 if (-not $SkipAndroid) {
     Step 'Android app (release APK)'

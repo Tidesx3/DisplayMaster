@@ -32,10 +32,16 @@ public sealed partial class MainWindow : Window
         }
 
         // --page=connection opens a specific page (tray menu entries, UI screenshots).
-        var page = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--page="))?["--page=".Length..];
-        Nav.SelectedItem = page == "settings"
-            ? Nav.SettingsItem
-            : Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == page) ?? Nav.MenuItems[0];
+        ShowPage(Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--page="))?["--page=".Length..]);
+    }
+
+    public void ShowPage(string? page)
+    {
+        if (page == "settings")
+            ContentFrame.Navigate(typeof(SettingsPage));  // SettingsItem exists only once the pane is laid out
+        else
+            Nav.SelectedItem = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == page) ??
+                               Nav.MenuItems[0];
     }
 
     private async void ReleaseNotes_Click(object sender, RoutedEventArgs e) =>

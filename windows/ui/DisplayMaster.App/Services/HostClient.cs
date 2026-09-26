@@ -153,8 +153,12 @@ public sealed class HostClient : IDisposable
     }
 
     /// <summary>Starts the host engine if nobody else did (installed builds use the elevated engine task).</summary>
+    /// <summary>False in the app's --smoke-test: never start the engine.</summary>
+    public static bool LaunchEngine { get; set; } = true;
+
     private void TryLaunchHost()
     {
+        if (!LaunchEngine) return;
         if (DateTime.UtcNow - _lastLaunchAttempt < TimeSpan.FromSeconds(10)) return;
         _lastLaunchAttempt = DateTime.UtcNow;
         if (Process.GetProcessesByName("DisplayMasterHost").Length > 0) return;

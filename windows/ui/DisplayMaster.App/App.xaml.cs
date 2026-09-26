@@ -27,10 +27,33 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        // A crash otherwise only shows up as a generic XAML error code in the event log.
+        UnhandledException += (_, e) => LogCrash(e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => LogCrash(e.ExceptionObject as Exception);
+    }
+
+    private static void LogCrash(Exception? e)
+    {
+        try
+        {
+            var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DisplayMaster");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(Path.Combine(dir, "app-crash.log"),
+                $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} DisplayMaster {Services.UpdateService.CurrentVersion}{Environment.NewLine}{e}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Nothing sensible left to do while crashing.
+        }
     }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        if (Environment.GetCommandLineArgs().Contains("--smoke-test"))
+        {
+            SmokeTest();
+            return;
+        }
         // Second launch: ask the running instance to show itself, then exit.
         _instanceMutex = new Mutex(true, InstanceMutexName, out var first);
         _showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
@@ -74,6 +97,28 @@ public partial class App : Application
 
         // Started at logon with --tray: stay in the notification area.
         if (!Environment.GetCommandLineArgs().Contains("--tray")) _window.Activate();
+    }
+
+    /// <summary>
+    /// tools\package.ps1 runs the published app with --smoke-test before releasing: builds the
+    /// view models and every page without showing a window, starting the engine or taking the
+    /// single-instance lock, then exits 0. A startup crash fails the release instead of users.
+    /// </summary>
+    private void SmokeTest()
+    {
+        Services.HostClient.LaunchEngine = false;
+        var dispatcher = DispatcherQueue.GetForCurrentThread();
+        ViewModel = new MainViewModel(dispatcher);
+        _window = new MainWindow();
+        dispatcher.TryEnqueue(async () =>
+        {
+            foreach (var page in new[] { "devices", "pen", "connection", "settings" })
+            {
+                _window.ShowPage(page);
+                await Task.Delay(300);
+            }
+            Environment.Exit(0);
+        });
     }
 
     private void CreateTrayIcon()
