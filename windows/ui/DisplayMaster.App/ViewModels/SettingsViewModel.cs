@@ -50,6 +50,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] public partial bool Locked { get; set; }
 
     [ObservableProperty] public partial bool StartWithWindows { get; set; }
+    /// <summary>Windows notification when a device connects or disconnects.</summary>
+    [ObservableProperty] public partial bool NotifyDevices { get; set; } = true;
 
     public bool CanEdit => !Locked;
     public string BitrateText => $"{BitrateMbps:0} Mbit/s";
@@ -71,6 +73,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Scale = Scales[0];
         Codec = Codecs[0];
         StartWithWindows = ReadAutostart();
+        NotifyDevices = ReadAppSetting("NotifyDevices", 1) != 0;
         _applying = false;
     }
 
@@ -121,6 +124,33 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception e)
         {
             Debug.WriteLine($"Autostart change failed: {e.Message}");
+        }
+    }
+
+    partial void OnNotifyDevicesChanged(bool value)
+    {
+        if (!_applying) WriteAppSetting("NotifyDevices", value ? 1 : 0);
+    }
+
+    // App-only preferences (the engine keeps its own in host.ini).
+    private const string AppKey = @"Software\DisplayMaster\App";
+
+    private static int ReadAppSetting(string name, int fallback)
+    {
+        using var key = Registry.CurrentUser.OpenSubKey(AppKey);
+        return key?.GetValue(name) is int v ? v : fallback;
+    }
+
+    private static void WriteAppSetting(string name, int value)
+    {
+        try
+        {
+            using var key = Registry.CurrentUser.CreateSubKey(AppKey);
+            key.SetValue(name, value, RegistryValueKind.DWord);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine($"Saving {name} failed: {e.Message}");
         }
     }
 

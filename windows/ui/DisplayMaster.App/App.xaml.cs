@@ -89,8 +89,11 @@ public partial class App : Application
         {
             if (_approvalDialogs.Remove(id, out var dialog)) dialog.Hide();
         };
+        ViewModel.DeviceConnected += device => Notify($"{device.Name} connected", $"{device.TransportText} · {device.ModeText}");
+        ViewModel.DeviceDisconnected += name => Notify($"{name} disconnected", "The extra screen is gone; windows moved back.");
         ViewModel.DevicesChanged += count =>
         {
+            RebuildTrayMenu();
             if (_tray is not null)
                 _tray.ToolTipText = count == 0 ? "DisplayMaster" : $"DisplayMaster – {count} device{(count == 1 ? "" : "s")} connected";
         };
@@ -110,6 +113,7 @@ public partial class App : Application
         var dispatcher = DispatcherQueue.GetForCurrentThread();
         ViewModel = new MainViewModel(dispatcher);
         _window = new MainWindow();
+        RebuildTrayMenu();  // the menu, without creating the tray icon itself
         dispatcher.TryEnqueue(async () =>
         {
             foreach (var page in new[] { "devices", "pen", "connection", "settings" })
@@ -121,16 +125,53 @@ public partial class App : Application
         });
     }
 
+    private void Notify(string title, string message)
+    {
+        if (_tray is null || !ViewModel.Settings.NotifyDevices) return;
+        _tray.ShowNotification(title, message);
+    }
+
+    private readonly MenuFlyout _menu = new();
+    private string _menuDevices = "?";
+
+    /// <summary>Tray menu: one Disconnect entry per device, then Open / Settings / Quit.</summary>
+    private void RebuildTrayMenu()
+    {
+        var devices = ViewModel.Devices.ToList();
+        var signature = string.Join("|", devices.Select(d => $"{d.Id}:{d.Name}"));
+        if (signature == _menuDevices) return;  // polled every second; only rebuild on changes
+        _menuDevices = signature;
+
+        _menu.Items.Clear();
+        if (devices.Count == 0)
+            _menu.Items.Add(new MenuFlyoutItem { Text = "No devices connected", IsEnabled = false });
+        foreach (var device in devices)
+            _menu.Items.Add(new MenuFlyoutItem
+            {
+                Text = $"Disconnect {device.Name}",
+                Icon = new FontIcon { Glyph = "\uE8CD" },
+                Command = new RelayCommand(() => ViewModel.DisconnectCommand.Execute(device)),
+            });
+        _menu.Items.Add(new MenuFlyoutSeparator());
+        _menu.Items.Add(new MenuFlyoutItem { Text = "Open DisplayMaster", Icon = new FontIcon { Glyph = "\uE7F4" }, Command = new RelayCommand(ShowWindow) });
+        _menu.Items.Add(new MenuFlyoutItem
+        {
+            Text = "Settings",
+            Icon = new FontIcon { Glyph = "\uE713" },
+            Command = new RelayCommand(() =>
+            {
+                ShowWindow();
+                _window?.ShowPage("settings");
+            }),
+        });
+        _menu.Items.Add(new MenuFlyoutSeparator());
+        _menu.Items.Add(new MenuFlyoutItem { Text = "Quit", Icon = new FontIcon { Glyph = "\uE7E8" }, Command = new AsyncRelayCommand(QuitAsync) });
+    }
+
     private void CreateTrayIcon()
     {
-        var menu = new MenuFlyout();
-        var open = new MenuFlyoutItem { Text = "Open DisplayMaster", Icon = new FontIcon { Glyph = "" } };
-        open.Command = new RelayCommand(ShowWindow);
-        var quit = new MenuFlyoutItem { Text = "Quit", Icon = new FontIcon { Glyph = "" } };
-        quit.Command = new AsyncRelayCommand(QuitAsync);
-        menu.Items.Add(open);
-        menu.Items.Add(new MenuFlyoutSeparator());
-        menu.Items.Add(quit);
+        RebuildTrayMenu();
+        var menu = _menu;
 
         _tray = new TaskbarIcon
         {

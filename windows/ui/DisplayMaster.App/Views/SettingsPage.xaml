@@ -111,6 +111,24 @@
                 </Grid>
             </Border>
 
+            <!-- Notifications -->
+            <Border Style="{StaticResource CardStyle}">
+                <Grid ColumnSpacing="20">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <FontIcon VerticalAlignment="Top" FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xEA8F;" />
+                    <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Connection notifications" />
+                        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap"
+                                   Text="A Windows notification when a device connects or disconnects." />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" IsOn="{x:Bind Settings.NotifyDevices, Mode=TwoWay}" />
+                </Grid>
+            </Border>
+
             <!-- About -->
             <Border Style="{StaticResource CardStyle}">
                 <Grid ColumnSpacing="20" RowSpacing="12">

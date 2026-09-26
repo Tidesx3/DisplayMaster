@@ -136,6 +136,10 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     /// <summary>Raised after each poll with the number of connected devices (tray tooltip).</summary>
     public event Action<int>? DevicesChanged;
+    /// <summary>A device connected / went away (not raised for devices already there at app start).</summary>
+    public event Action<DeviceViewModel>? DeviceConnected;
+    public event Action<string>? DeviceDisconnected;
+    private bool _synced;
 
     public MainViewModel(DispatcherQueue dispatcher)
     {
@@ -205,17 +209,25 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     private void SyncDevices(List<SessionInfo> sessions)
     {
         for (var i = Devices.Count - 1; i >= 0; i--)
-            if (sessions.All(s => s.Id != Devices[i].Id)) Devices.RemoveAt(i);
+            if (sessions.All(s => s.Id != Devices[i].Id))
+            {
+                var name = Devices[i].Name;
+                Devices.RemoveAt(i);
+                DeviceDisconnected?.Invoke(name);
+            }
         foreach (var s in sessions)
         {
             var vm = Devices.FirstOrDefault(d => d.Id == s.Id);
+            var added = vm is null;
             if (vm is null)
             {
                 vm = new DeviceViewModel(s.Id) { PositionPicked = (d, pos) => _ = _host.SetPositionAsync(d.Id, pos) };
                 Devices.Add(vm);
             }
             vm.Update(s);
+            if (added && _synced) DeviceConnected?.Invoke(vm);
         }
+        _synced = true;
         DevicesChanged?.Invoke(Devices.Count);
     }
 
