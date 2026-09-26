@@ -35,10 +35,12 @@ SolidCompression=yes
 CloseApplications=force
 RestartApplications=no
 LicenseFile=..\..\LICENSE
+; Upgrades start from the defaults below instead of the old choices (autostart is now opt-in).
+UsePreviousTasks=no
 
 [Tasks]
 Name: "vdd"; Description: "Install the virtual display driver (needed to extend the desktop)"; GroupDescription: "Components:"
-Name: "autostart"; Description: "Start DisplayMaster when I sign in"; GroupDescription: "Components:"
+Name: "autostart"; Description: "Start DisplayMaster when I sign in"; GroupDescription: "Components:"; Flags: unchecked
 Name: "firewall"; Description: "Allow devices on private Wi-Fi networks to connect"; GroupDescription: "Components:"
 
 [Files]
@@ -48,9 +50,11 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Name: "{autoprograms}\DisplayMaster"; Filename: "{app}\DisplayMaster.exe"; Comment: "Use your Android tablet or phone as a second screen"
 
 [Registry]
-; Tray app at sign-in (the engine itself is started by the logon task).
+; Optional: tray app at sign-in (the app starts the engine). Otherwise drop an older entry.
 Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "DisplayMaster"; \
   ValueData: """{app}\DisplayMaster.exe"" --tray"; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "DisplayMaster"; \
+  Flags: deletevalue; Tasks: not autostart
 ; Remember whether we installed the driver, so uninstall only removes what it added.
 Root: HKLM; Subkey: "Software\DisplayMaster"; ValueType: dword; ValueName: "InstalledVdd"; ValueData: 1; \
   Flags: uninsdeletekey; Tasks: vdd

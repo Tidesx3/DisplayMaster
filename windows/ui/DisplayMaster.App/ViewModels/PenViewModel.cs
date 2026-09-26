@@ -2,7 +2,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using DisplayMaster.Services;
 using Microsoft.UI.Dispatching;
-using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
 
 namespace DisplayMaster.ViewModels;
@@ -26,7 +25,12 @@ public sealed partial class PenViewModel : ObservableObject
     [ObservableProperty] public partial double MaxPercent { get; set; } = 100;
     /// <summary>-100 = softest, 0 = linear, 100 = firmest.</summary>
     [ObservableProperty] public partial double Feel { get; set; }
-    [ObservableProperty] public partial PointCollection CurvePoints { get; set; } = new();
+    /// <summary>
+    /// Graph points in <see cref="GraphSize"/> units. A plain array, not a PointCollection:
+    /// a PointCollection can belong to only one Polyline, and the page is recreated on every
+    /// visit while the view model lives on, so each page builds its own collection.
+    /// </summary>
+    [ObservableProperty] public partial Point[] CurvePoints { get; set; } = [];
 
     public double Gamma => Math.Pow(2.5, Feel / MaxFeel);
     public string FeelText => Math.Abs(Feel) < 5 ? "Linear" : Feel < 0 ? "Softer – more ink with a light touch" : "Firmer – press harder for thick lines";
@@ -75,13 +79,13 @@ public sealed partial class PenViewModel : ObservableObject
     private void UpdateCurve()
     {
         double min = MinPercent / 100, max = Math.Max(min + 0.05, MaxPercent / 100), gamma = Gamma;
-        var points = new PointCollection();
-        for (var i = 0; i <= 64; i++)
+        var points = new Point[65];
+        for (var i = 0; i < points.Length; i++)
         {
             var p = i / 64.0;
             var t = Math.Clamp((p - min) / (max - min), 0, 1);
             var output = Math.Pow(t, gamma);
-            points.Add(new Point(p * GraphSize, (1 - output) * GraphSize));
+            points[i] = new Point(p * GraphSize, (1 - output) * GraphSize);
         }
         CurvePoints = points;
     }

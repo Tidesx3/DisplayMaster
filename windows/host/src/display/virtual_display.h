@@ -34,6 +34,12 @@ public:
     virtual bool configure(uint32_t monitor_count, const std::vector<DisplayModeSpec>& modes) = 0;
     // Pin rendering to a GPU (by adapter description), empty = driver default.
     virtual bool set_render_gpu(const std::wstring& adapter_name) = 0;
+
+    // Driver device on/off. Off, Windows lists none of its monitors. Providers that can't
+    // (or mustn't) switch the device return false from set_enabled and stay on.
+    virtual bool installed() { return available(); }
+    virtual bool enabled() { return true; }
+    virtual bool set_enabled(bool) { return false; }
 };
 
 // Signed open-source driver: https://github.com/VirtualDrivers/Virtual-Display-Driver
@@ -46,11 +52,15 @@ public:
     uint32_t monitor_count() override;
     bool configure(uint32_t monitor_count, const std::vector<DisplayModeSpec>& modes) override;
     bool set_render_gpu(const std::wstring& adapter_name) override;
+    bool installed() override;
+    bool enabled() override;
+    bool set_enabled(bool on) override;
 
     // Exposed for tests: add missing <resolution> entries to settings XML text.
     static std::string add_resolutions(const std::string& xml, const std::vector<DisplayModeSpec>& modes,
                                        bool* changed);
     static uint32_t parse_count(const std::string& xml);
+    static std::string set_count(const std::string& xml, uint32_t count);
 
 private:
     bool send_command(const std::wstring& cmd, std::wstring* reply = nullptr);
@@ -63,9 +73,9 @@ public:
 
     bool available() const { return available_; }
 
-    // Startup: make sure the driver has at least `min_slots` monitors (one reload, now
-    // rather than mid-stream), then detach every virtual monitor nobody uses.
-    void prepare(uint32_t min_slots);
+    // Startup: switch the driver off while no device needs it (every driver monitor is
+    // listed in Windows' display settings, attached or not).
+    void prepare();
 
     // Give `session_id` a virtual monitor with the requested mode, placed to the
     // right of the desktop. Returns the monitor as it now appears.
@@ -85,6 +95,7 @@ private:
     std::optional<MonitorInfo> wait_for_slot(size_t slot, bool want_active, uint32_t timeout_ms);
     std::optional<MonitorInfo> apply_mode(size_t slot, const DisplayModeSpec& mode);
     void detach_unused_locked(size_t keep_slot);
+    void idle_locked();
 
     std::unique_ptr<IVirtualDisplayProvider> provider_;
     bool available_ = false;

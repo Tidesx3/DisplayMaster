@@ -11,6 +11,15 @@ namespace dm::setup {
 int install_vdd(const std::filesystem::path& package_dir);
 int uninstall_vdd();
 
+// Device state. Disabled = no virtual monitors at all (none listed in display settings).
+enum class VddState { NotInstalled, Disabled, Enabled };
+VddState vdd_state();
+// Requires elevation.
+bool set_vdd_enabled(bool on);
+// True if the DisplayMaster installer added the driver (it may be switched off when
+// idle); a driver another tool installed is left running.
+bool vdd_installed_by_us();
+
 // Settings folder the driver reads (registry VDDPATH, default C:\VirtualDisplayDriver).
 std::filesystem::path vdd_settings_dir();
 

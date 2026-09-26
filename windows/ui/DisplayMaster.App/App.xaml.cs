@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.Input;
 using DisplayMaster.ViewModels;
 using H.NotifyIcon;
 using Microsoft.UI.Dispatching;
+using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -18,6 +19,7 @@ public partial class App : Application
     private Mutex? _instanceMutex;
     private EventWaitHandle? _showEvent;
     private bool _quitting;
+    private bool _trayHintShown;
     private readonly Dictionary<int, ContentDialog> _approvalDialogs = new();
 
     public static MainViewModel ViewModel { get; private set; } = null!;
@@ -48,7 +50,13 @@ public partial class App : Application
             if (_quitting) return;
             // Closing the window keeps DisplayMaster running in the tray.
             e.Cancel = true;
-            _window.AppWindow.Hide();
+            HideToTray();
+        };
+        // Minimizing does the same: the window leaves the taskbar and lives in the tray.
+        _window.AppWindow.Changed += (sender, e) =>
+        {
+            if (e.DidPresenterChange || sender.Presenter is not OverlappedPresenter p) return;
+            if (p.State == OverlappedPresenterState.Minimized && sender.IsVisible) HideToTray();
         };
         CreateTrayIcon();
         ViewModel.ApprovalRequested += device => _ = AskApprovalAsync(device);
@@ -119,10 +127,22 @@ public partial class App : Application
         await ViewModel.AnswerApprovalAsync(device.Id, result == ContentDialogResult.Primary, remember.IsChecked == true);
     }
 
+    private void HideToTray()
+    {
+        if (_window is null) return;
+        _window.AppWindow.Hide();
+        if (_trayHintShown || _tray is null) return;
+        // Once per run, so it doesn't look like the app quit (Quit is in the tray menu).
+        _trayHintShown = true;
+        _tray.ShowNotification("DisplayMaster is still running",
+            "Connected devices keep working. Open or quit DisplayMaster from its icon in the notification area.");
+    }
+
     private void ShowWindow()
     {
         if (_window is null) return;
         _window.AppWindow.Show();
+        if (_window.AppWindow.Presenter is OverlappedPresenter { State: OverlappedPresenterState.Minimized } p) p.Restore();
         _window.Activate();
     }
 

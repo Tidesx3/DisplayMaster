@@ -53,7 +53,8 @@ private:
     uint32_t next_id_ = 1;
 };
 
-// Up, non-loopback IPv4 addresses of this PC (shown in the UI for Wi-Fi setup).
+// IPv4 addresses devices on the LAN can reach (adapters with a default gateway, so no
+// Hyper-V / VM adapters), best route first. Shown in the UI for Wi-Fi setup.
 std::vector<std::string> lan_ipv4_addresses();
 
 }  // namespace dm

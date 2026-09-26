@@ -1,4 +1,7 @@
 // DisplayMaster host: turns Android devices into extra monitors for this PC.
+// Built for the GUI subsystem so it never opens a console window of its own; run from a
+// terminal it prints into that terminal (PowerShell returns to the prompt right away:
+// pipe into Out-Host, e.g. `DisplayMasterHost.exe --list-monitors | Out-Host`, to wait).
 //
 //   DisplayMasterHost.exe [options]
 //     --mode extend|mirror      force a display mode (default: what the device asks for)
@@ -54,6 +57,17 @@ bool is_elevated() {
     return ok;
 }
 
+// No console of our own: use the terminal we were started from, if any. Redirected
+// handles (pipes, files) are already wired up by the CRT and are left alone.
+void attach_parent_console() {
+    const HANDLE err = GetStdHandle(STD_ERROR_HANDLE);
+    if (err && err != INVALID_HANDLE_VALUE) return;
+    if (!AttachConsole(ATTACH_PARENT_PROCESS)) return;
+    FILE* f = nullptr;
+    freopen_s(&f, "CONOUT$", "w", stdout);
+    freopen_s(&f, "CONOUT$", "w", stderr);
+}
+
 BOOL WINAPI on_ctrl(DWORD) {
     SetEvent(g_quit);
     return TRUE;
@@ -71,6 +85,7 @@ std::optional<proto::Codec> parse_codec(const std::string& s) {
 int wmain(int argc, wchar_t** argv) {
     // Per-monitor DPI awareness: required by DuplicateOutput1 and for physical-pixel coordinates.
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    attach_parent_console();
 
     HostOptions opts;
     std::wstring log_file;

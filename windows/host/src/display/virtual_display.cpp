@@ -67,6 +67,14 @@ uint32_t MttVddProvider::parse_count(const std::string& xml) {
     return 1;
 }
 
+std::string MttVddProvider::set_count(const std::string& xml, uint32_t count) {
+    static const std::regex re(R"(<monitors>\s*<count>\s*(\d+)\s*</count>)");
+    std::smatch m;
+    if (!std::regex_search(xml, m, re)) return xml;  // unexpected format: leave untouched
+    const auto pos = static_cast<size_t>(m.position(1));
+    return xml.substr(0, pos) + std::to_string(count) + xml.substr(pos + static_cast<size_t>(m.length(1)));
+}
+
 std::string MttVddProvider::add_resolutions(const std::string& xml, const std::vector<DisplayModeSpec>& modes,
                                             bool* changed) {
     *changed = false;
@@ -105,6 +113,12 @@ bool MttVddProvider::configure(uint32_t monitor_count, const std::vector<Display
     std::string updated = add_resolutions(xml, modes, &modes_changed);
     const bool count_changed = parse_count(updated) != monitor_count;
     if (!modes_changed && !count_changed) return true;
+    if (!enabled()) {
+        // Switched off: the driver reads the file when it starts.
+        if (write_file(settings_path_, set_count(updated, monitor_count))) return true;
+        DM_LOGE("Cannot write %s (host must run elevated)", to_utf8(settings_path_).c_str());
+        return false;
+    }
     if (modes_changed && !write_file(settings_path_, updated)) {
         DM_LOGE("Cannot write %s (host must run elevated)", to_utf8(settings_path_).c_str());
         return false;
@@ -119,13 +133,32 @@ bool MttVddProvider::set_render_gpu(const std::wstring& adapter_name) {
     return send_command(L"SETGPU \"" + adapter_name + L"\"");
 }
 
+bool MttVddProvider::installed() { return setup::vdd_state() != setup::VddState::NotInstalled; }
+
+bool MttVddProvider::enabled() { return setup::vdd_state() == setup::VddState::Enabled; }
+
+bool MttVddProvider::set_enabled(bool on) {
+    // Only a driver we installed is ours to switch off; another tool may rely on it.
+    if (!on && !setup::vdd_installed_by_us()) return false;
+    if (!setup::set_vdd_enabled(on)) return false;
+    if (!on) return true;
+    // Starting takes a moment; the control pipe answers once the adapter is up.
+    for (int i = 0; i < 40; ++i) {
+        if (available()) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    DM_LOGE("VDD: driver did not start");
+    return false;
+}
+
 // ---------------------------------------------------------------- VirtualDisplayManager
 
 VirtualDisplayManager::VirtualDisplayManager(std::unique_ptr<IVirtualDisplayProvider> provider)
     : provider_(std::move(provider)) {
-    available_ = provider_ && provider_->available();
+    // A driver we switched off earlier counts: acquire() turns it back on.
+    available_ = provider_ && (provider_->available() || (provider_->installed() && !provider_->enabled()));
     if (available_)
-        DM_LOGI("Virtual display driver: %s (%u monitor slot(s))", provider_->name(), provider_->monitor_count());
+        DM_LOGI("Virtual display driver: %s (%s)", provider_->name(), provider_->enabled() ? "on" : "off");
     else
         DM_LOGW("Virtual display driver not found - extend mode unavailable, mirror mode only");
 }
@@ -149,15 +182,25 @@ std::optional<MonitorInfo> VirtualDisplayManager::wait_for_slot(size_t slot, boo
     return std::nullopt;
 }
 
-void VirtualDisplayManager::prepare(uint32_t min_slots) {
+void VirtualDisplayManager::prepare() {
     if (!available_) return;
     std::lock_guard lock(mu_);
-    // Sizing the driver reloads it, which interrupts every virtual monitor; do it now,
-    // while nothing streams, instead of when the second device connects.
-    if (provider_->monitor_count() < min_slots) {
-        DM_LOGI("VDD: provisioning %u monitor slots", min_slots);
-        provider_->configure(min_slots, known_modes_);
-        wait_for_slot(min_slots - 1, false, 8000);
+    idle_locked();
+}
+
+// No device connected. Every driver monitor shows up in Windows' display settings, attached
+// or not, so switch the driver off; acquire() switches it on with as many monitors as needed.
+// If it must stay on (not ours, not elevated), keep a single detached monitor.
+void VirtualDisplayManager::idle_locked() {
+    if (!slots_.empty() || !provider_->enabled()) return;
+    if (provider_->set_enabled(false)) {
+        DM_LOGI("VDD: switched off until a device extends the desktop");
+        provider_->configure(1, known_modes_);  // start with one monitor next time
+        return;
+    }
+    if (provider_->monitor_count() > 1) {
+        provider_->configure(1, known_modes_);
+        wait_for_slot(0, false, 8000);
     }
     detach_unused_locked(SIZE_MAX);
 }
@@ -209,7 +252,14 @@ std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, c
         if (std::find(known_modes_.begin(), known_modes_.end(), m) == known_modes_.end()) known_modes_.push_back(m);
 
     const uint32_t needed = static_cast<uint32_t>(std::max<size_t>(slot + 1, provider_->monitor_count()));
-    if (!provider_->configure(needed, known_modes_)) return std::nullopt;
+    if (!provider_->enabled()) {
+        // Count and modes go into the settings file first, so starting needs no reload.
+        if (!provider_->configure(static_cast<uint32_t>(slot + 1), known_modes_)) return std::nullopt;
+        DM_LOGI("VDD: switching on");
+        if (!provider_->set_enabled(true)) return std::nullopt;
+    } else if (!provider_->configure(needed, known_modes_)) {
+        return std::nullopt;
+    }
 
     auto mon = apply_mode(slot, mode);
     if (!mon) return std::nullopt;
@@ -264,6 +314,7 @@ void VirtualDisplayManager::release(uint32_t session_id) {
             set_target_active(mons[it->first].adapter_luid, mons[it->first].target_id, false);
         DM_LOGI("Session %u released virtual monitor %zu", session_id, it->first);
         slots_.erase(it);
+        idle_locked();
         return;
     }
 }

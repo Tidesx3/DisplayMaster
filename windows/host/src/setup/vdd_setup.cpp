@@ -26,8 +26,8 @@ std::wstring lower(std::wstring s) {
 
 // Calls `fn(set, info)` for every device (present or not) whose hardware IDs include ours.
 template <typename Fn>
-int for_each_vdd_device(Fn fn) {
-    HDEVINFO set = SetupDiGetClassDevsW(nullptr, nullptr, nullptr, DIGCF_ALLCLASSES);
+int for_each_vdd_device(Fn fn, bool present_only = false) {
+    HDEVINFO set = SetupDiGetClassDevsW(nullptr, nullptr, nullptr, DIGCF_ALLCLASSES | (present_only ? DIGCF_PRESENT : 0));
     if (set == INVALID_HANDLE_VALUE) return 0;
     int count = 0;
     SP_DEVINFO_DATA info{sizeof info};
@@ -111,6 +111,45 @@ int install_vdd(const std::filesystem::path& package_dir) {
     }
     DM_LOGI("VDD setup: virtual display driver installed%s", reboot ? " (restart required)" : "");
     return reboot ? 1 : 0;
+}
+
+VddState vdd_state() {
+    auto state = VddState::NotInstalled;
+    for_each_vdd_device(
+        [&](HDEVINFO, SP_DEVINFO_DATA& info) {
+            ULONG status = 0, problem = 0;
+            const bool disabled = CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0) == CR_SUCCESS &&
+                                  (status & DN_HAS_PROBLEM) && problem == CM_PROB_DISABLED;
+            if (state != VddState::Enabled) state = disabled ? VddState::Disabled : VddState::Enabled;
+        },
+        true);
+    return state;
+}
+
+bool set_vdd_enabled(bool on) {
+    bool ok = false;
+    for_each_vdd_device(
+        [&](HDEVINFO set, SP_DEVINFO_DATA& info) {
+            SP_PROPCHANGE_PARAMS params{};
+            params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
+            params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
+            params.StateChange = on ? DICS_ENABLE : DICS_DISABLE;
+            params.Scope = DICS_FLAG_GLOBAL;
+            if (SetupDiSetClassInstallParamsW(set, &info, &params.ClassInstallHeader, sizeof params) &&
+                SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, set, &info))
+                ok = true;
+            else
+                DM_LOGW("VDD: %s the device failed (%lu)", on ? "enabling" : "disabling", GetLastError());
+        },
+        true);
+    return ok;
+}
+
+bool vdd_installed_by_us() {
+    DWORD value = 0, size = sizeof value;
+    return RegGetValueW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\DisplayMaster", L"InstalledVdd", RRF_RT_REG_DWORD, nullptr,
+                        &value, &size) == ERROR_SUCCESS &&
+           value == 1;
 }
 
 int uninstall_vdd() {

@@ -46,16 +46,27 @@ std::string ok_json() {
 }  // namespace
 
 std::vector<std::string> lan_ipv4_addresses() {
-    std::vector<std::string> out;
     ULONG size = 16 * 1024;
     std::vector<uint8_t> buf(size);
-    const ULONG flags = GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER;
+    const ULONG flags =
+        GAA_FLAG_SKIP_ANYCAST | GAA_FLAG_SKIP_MULTICAST | GAA_FLAG_SKIP_DNS_SERVER | GAA_FLAG_INCLUDE_GATEWAYS;
     ULONG r = GetAdaptersAddresses(AF_INET, flags, nullptr, reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buf.data()), &size);
     if (r == ERROR_BUFFER_OVERFLOW) {
         buf.resize(size);
         r = GetAdaptersAddresses(AF_INET, flags, nullptr, reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buf.data()), &size);
     }
-    if (r != NO_ERROR) return out;
+    if (r != NO_ERROR) return {};
+
+    // Hyper-V, WSL, VirtualBox and VMware adapters are up too but lead nowhere; the
+    // adapter(s) with a default gateway are the ones on the real network. Windows'
+    // preferred route (lowest metric) comes first. Without any gateway (e.g. a router
+    // with no internet), fall back to every address.
+    struct Candidate {
+        std::string ip;
+        bool gateway;
+        ULONG metric;
+    };
+    std::vector<Candidate> all;
     for (auto* a = reinterpret_cast<IP_ADAPTER_ADDRESSES*>(buf.data()); a; a = a->Next) {
         if (a->OperStatus != IfOperStatusUp || a->IfType == IF_TYPE_SOFTWARE_LOOPBACK) continue;
         for (auto* u = a->FirstUnicastAddress; u; u = u->Next) {
@@ -63,9 +74,14 @@ std::vector<std::string> lan_ipv4_addresses() {
             char ip[INET_ADDRSTRLEN] = {};
             inet_ntop(AF_INET, &sin->sin_addr, ip, sizeof ip);
             if (std::string(ip).rfind("169.254.", 0) == 0) continue;  // link-local
-            out.emplace_back(ip);
+            all.push_back({ip, a->FirstGatewayAddress != nullptr, a->Ipv4Metric});
         }
     }
+    const bool any_gateway = std::any_of(all.begin(), all.end(), [](const Candidate& c) { return c.gateway; });
+    std::stable_sort(all.begin(), all.end(), [](const Candidate& a, const Candidate& b) { return a.metric < b.metric; });
+    std::vector<std::string> out;
+    for (const auto& c : all)
+        if (c.gateway || !any_gateway) out.push_back(c.ip);
     return out;
 }
 
@@ -90,7 +106,7 @@ bool Host::start_listening() {
 }
 
 bool Host::start() {
-    vdm_.prepare(2);  // two devices can extend without a driver reload
+    vdm_.prepare();
     if (!start_listening()) return false;
     update_advertising();
     if (opts_.adb) adb_.start(opts_.port, opts_.adb_auto_launch);

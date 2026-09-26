@@ -1,6 +1,7 @@
 # Called by DisplayMaster-Setup.exe (elevated) to register what Inno Setup can't express directly.
 #
-#   -Action Install  : logon task \DisplayMaster\Engine (runs the engine elevated for the
+#   -Action Install  : on-demand task \DisplayMaster\Engine (no trigger: the DisplayMaster app
+#                      runs it, so the engine starts and stops with the app; elevated for the
 #                      installing user: pen/touch reach admin windows, no UAC prompt later)
 #                      [+ firewall rule for Wi-Fi when -Firewall]
 #   -Action Uninstall: removes both
@@ -30,10 +31,9 @@ Remove-Registrations
 $user = [Security.Principal.WindowsIdentity]::GetCurrent().Name
 $task = New-ScheduledTask `
     -Action (New-ScheduledTaskAction -Execute $engine -Argument '--log auto' -WorkingDirectory $AppDir) `
-    -Trigger (New-ScheduledTaskTrigger -AtLogOn -User $user) `
     -Principal (New-ScheduledTaskPrincipal -UserId $user -RunLevel Highest -LogonType Interactive) `
     -Settings (New-ScheduledTaskSettingsSet -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries `
-        -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -StartWhenAvailable -Priority 4)
+        -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew -Priority 4)
 Register-ScheduledTask -TaskPath $taskPath -TaskName $taskName -InputObject $task -Force | Out-Null
 
 if ($Firewall) {
@@ -41,4 +41,3 @@ if ($Firewall) {
     New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -Action Allow -Protocol TCP `
         -Program $engine -Profile Private | Out-Null
 }
-Start-ScheduledTask -TaskPath $taskPath -TaskName $taskName

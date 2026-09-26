@@ -143,7 +143,7 @@ public sealed class HostClient : IDisposable
         _pipe = null;
     }
 
-    /// <summary>Starts the host engine if nobody else did (installed builds use a logon task).</summary>
+    /// <summary>Starts the host engine if nobody else did (installed builds use the elevated engine task).</summary>
     private void TryLaunchHost()
     {
         if (DateTime.UtcNow - _lastLaunchAttempt < TimeSpan.FromSeconds(10)) return;
@@ -189,10 +189,10 @@ public static class HostExecutable
         return candidates.FirstOrDefault(File.Exists);
     }
 
-    /// <summary>Scheduled task created by install.ps1: runs the engine elevated at logon.</summary>
+    /// <summary>On-demand task created by the installer: runs the engine elevated, without a UAC prompt.</summary>
     public const string TaskName = @"\DisplayMaster\Engine";
 
-    /// <summary>Starts the engine through the installed logon task. False if there is no task.</summary>
+    /// <summary>Starts the engine through the installed task. False if there is no task.</summary>
     public static bool RunTask()
     {
         try

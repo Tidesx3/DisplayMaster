@@ -30,8 +30,11 @@ target_link_libraries(dm_host_core PUBLIC dm_protocol d3d11 dxgi d3dcompiler ws2
 # Synthetic pointer API needs the Windows 10 1809 headers.
 target_compile_definitions(dm_host_core PUBLIC _WIN32_WINNT=0x0A00 NTDDI_VERSION=0x0A000006)
 
-add_executable(DisplayMasterHost src/main.cpp src/diagnostics.cpp host.manifest)
+# GUI subsystem: started by the app or its task, the engine runs without a console window.
+# main.cpp attaches to the parent console when run from a terminal (diagnostics, -v).
+add_executable(DisplayMasterHost WIN32 src/main.cpp src/diagnostics.cpp host.manifest)
 target_link_libraries(DisplayMasterHost PRIVATE dm_host_core)
+target_link_options(DisplayMasterHost PRIVATE /ENTRY:wmainCRTStartup)
 
 if(DM_BUILD_TESTS)
   add_executable(dm_host_tests tests/virtual_display_test.cpp tests/cursor_test.cpp tests/json_test.cpp tests/approval_test.cpp)

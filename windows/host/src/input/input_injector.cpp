@@ -14,6 +14,13 @@ namespace {
 // at least this often.
 constexpr uint64_t kTouchKeepaliveUs = 60'000;
 
+// Synthetic pointer devices span the whole virtual desktop but read ptPixelLocation
+// relative to its top-left corner, not as screen coordinates. With a monitor left of
+// or above the primary (negative origin) every point would land shifted by that much.
+POINT to_device(POINT desktop) {
+    return {desktop.x - GetSystemMetrics(SM_XVIRTUALSCREEN), desktop.y - GetSystemMetrics(SM_YVIRTUALSCREEN)};
+}
+
 }  // namespace
 
 InputInjector::InputInjector() {
@@ -59,7 +66,8 @@ void InputInjector::pen(const proto::Pen& p) {
     info.type = PT_PEN;
     auto& pen = info.penInfo;
     pen.pointerInfo.pointerType = PT_PEN;
-    pen.pointerInfo.ptPixelLocation = pt ? POINT{pt->x, pt->y} : pen_pt_;
+    const POINT desktop_pt = pt ? POINT{pt->x, pt->y} : pen_pt_;
+    pen.pointerInfo.ptPixelLocation = to_device(desktop_pt);
 
     POINTER_FLAGS flags = 0;
     if (in_range) flags |= POINTER_FLAG_INRANGE;
@@ -84,7 +92,7 @@ void InputInjector::pen(const proto::Pen& p) {
     if (!InjectSyntheticPointerInput(pen_dev_, &info, 1)) DM_LOGD("pen inject failed %lu", GetLastError());
     pen_in_range_ = in_range;
     pen_contact_ = contact;
-    pen_pt_ = pen.pointerInfo.ptPixelLocation;
+    pen_pt_ = desktop_pt;
 }
 
 // ---------------------------------------------------------------- touch
@@ -99,11 +107,12 @@ void InputInjector::inject_touch_frame(int changed, uint32_t changed_flags) {
         auto& t = info.touchInfo;
         t.pointerInfo.pointerType = PT_TOUCH;
         t.pointerInfo.pointerId = static_cast<UINT32>(i);
-        t.pointerInfo.ptPixelLocation = c.pt;
+        const POINT pt = to_device(c.pt);
+        t.pointerInfo.ptPixelLocation = pt;
         t.pointerInfo.pointerFlags =
             i == changed ? changed_flags : (POINTER_FLAG_UPDATE | POINTER_FLAG_INRANGE | POINTER_FLAG_INCONTACT);
         t.touchMask = TOUCH_MASK_CONTACTAREA | TOUCH_MASK_PRESSURE;
-        t.rcContact = {c.pt.x - c.radius, c.pt.y - c.radius, c.pt.x + c.radius, c.pt.y + c.radius};
+        t.rcContact = {pt.x - c.radius, pt.y - c.radius, pt.x + c.radius, pt.y + c.radius};
         t.pressure = c.pressure;
         infos.push_back(info);
     }
@@ -283,7 +292,7 @@ void InputInjector::release_all() {
         POINTER_TYPE_INFO info{};
         info.type = PT_PEN;
         info.penInfo.pointerInfo.pointerType = PT_PEN;
-        info.penInfo.pointerInfo.ptPixelLocation = pen_pt_;
+        info.penInfo.pointerInfo.ptPixelLocation = to_device(pen_pt_);
         info.penInfo.pointerInfo.pointerFlags = pen_contact_ ? POINTER_FLAG_UP : POINTER_FLAG_UPDATE;
         InjectSyntheticPointerInput(pen_dev_, &info, 1);
         pen_in_range_ = pen_contact_ = false;

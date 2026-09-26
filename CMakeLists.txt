@@ -10,6 +10,9 @@ if(DM_BUILD_TESTS)
 endif()
 
 if(MSVC)
+  # Static C++ runtime: the engine runs on PCs without the VC++ redistributable, so the
+  # installer needs nothing else.
+  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
   add_compile_options(/W4 /permissive- /utf-8 /Zc:__cplusplus)
   add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX UNICODE _UNICODE)
 endif()

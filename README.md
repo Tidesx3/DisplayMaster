@@ -61,7 +61,7 @@ minSdk 24 (Android 7). Native libraries are 16 KB page aligned.
 Download or build **`DisplayMaster-Setup-<version>.exe`** and run it. One installer contains
 everything: the app, the engine, `adb`, the Android app (installed automatically on plugged-in
 devices) and the signed [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
-for Extend mode. Options: *virtual display driver*, *start at sign-in*, *allow private Wi-Fi networks*.
+for Extend mode. Options: *virtual display driver*, *start at sign-in* (off by default), *allow private Wi-Fi networks*.
 Windows may ask once to trust the driver publisher (SignPath Foundation).
 
 * Unattended, e.g. on other PCs: `DisplayMaster-Setup-0.1.0.exe /VERYSILENT /TASKS="vdd,autostart,firewall"`
@@ -69,9 +69,11 @@ Windows may ask once to trust the driver publisher (SignPath Foundation).
   firewall rule and autostart; the driver is removed only if the installer added it (you're asked).
 * Requires Windows 10 1809+ x64.
 
-What it sets up: the engine runs **elevated at sign-in** through a scheduled task
-(`\DisplayMaster\Engine`), so pen/touch reach admin apps and there's no UAC prompt later; the app
-starts in the tray; the firewall rule allows the engine on *Private* networks only.
+What it sets up: the engine starts **with the app** and runs elevated and windowless through an
+on-demand scheduled task (`\DisplayMaster\Engine`), so pen/touch reach admin apps and there's no
+UAC prompt later. Nothing starts at sign-in unless you tick *start at sign-in*. Closing or
+minimizing the window keeps DisplayMaster in the tray; *Quit* in the tray menu stops the engine
+too. The firewall rule allows the engine on *Private* networks only.
 
 ## Using it
 
@@ -86,8 +88,10 @@ On the device: swipe in from the right edge (or press Back) for the quick panel 
 finger input mode (Touch / Mouse / Trackpad), keyboard, performance overlay, disconnect.
 
 ### Engine command line (diagnostics)
+The engine has no console window of its own; from PowerShell, pipe into `Out-Host` so the prompt
+waits for the output.
 ```
-DisplayMasterHost.exe --list-monitors        # all monitors incl. virtual ones
+DisplayMasterHost.exe --list-monitors | Out-Host   # all monitors incl. virtual ones
 DisplayMasterHost.exe --probe-encoders       # which GPU encodes which codec, with timings
 DisplayMasterHost.exe --selftest 5 --out x.hevc   # capture+encode the main screen, no device needed
 DisplayMasterHost.exe -v --no-input          # verbose; log device input instead of injecting it
@@ -107,12 +111,12 @@ Other flags: `--mode extend|mirror`, `--codec h264|hevc|av1`, `--encoder nvenc|a
 | Mouse cursor composited into the stream | ✅ verified (GPU, incl. inverting cursors) |
 | 120 Hz, start-to-start frame pacing | ✅ |
 | Several devices at once (one shared capture per monitor) | ✅ verified (5 mirroring, 2 extending) |
-| Pen: pressure, tilt, hover, barrel, eraser (Windows Ink) | ✅ implemented; message flow verified, injection needs a real pen device |
+| Pen: pressure, tilt, hover, barrel, eraser (Windows Ink) | ✅ injection verified (synthetic pen reaches apps, also with monitors left of / above the primary) |
 | Pressure curve (dead zone, full-pressure point, feel) with live preview | ✅ |
-| Multi-touch, mouse-emulation and trackpad modes, palm rejection | ✅ |
+| Multi-touch, mouse-emulation and trackpad modes, palm rejection | ✅ touch injection verified on a multi-monitor desktop |
 | Hardware keyboard (scancodes: correct on AZERTY/QWERTZ) + soft keyboard | ✅ |
 | Rotation / Fold posture → virtual monitor resize | ✅ implemented |
-| Installer (setup.exe incl. driver), elevated engine at sign-in, autostart, firewall, clean uninstall | ✅ verified install / upgrade / uninstall |
+| Installer (setup.exe incl. driver), elevated windowless engine, optional autostart, firewall, clean uninstall | ✅ verified install / upgrade / uninstall |
 | Zero-setup USB (AOA, no USB debugging) | ⏳ planned (M5) |
 | UDP video with FEC for Wi-Fi, TLS | ⏳ planned (M4 / backlog) |
 | Wintab driver, pen button remapping | ⏳ planned (M7) |

@@ -138,7 +138,8 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 VddInstalled = h.Vdd;
                 AdbAvailable = h.Adb;
                 UsbPromptPending = h.AdbUnauthorized.Count > 0;
-                AddressesText = h.Addresses.Count > 0 ? string.Join("\n", h.Addresses) : "No network connection";
+                // The engine lists the best address first; one is all a device needs.
+                AddressesText = h.Addresses.Count > 0 ? h.Addresses[0] : "No network connection";
                 UsbDevicesText = h.AdbReady.Count > 0 ? string.Join(", ", h.AdbReady) : "None";
                 if (h.Pen is { } pen) Pen.Load(pen);
             }

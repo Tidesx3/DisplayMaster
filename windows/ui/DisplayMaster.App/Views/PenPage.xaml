@@ -70,7 +70,7 @@
                                 <Line Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" X1="0" X2="220" Y1="110" Y2="110" />
                                 <Line Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" X1="110" X2="110" Y1="0" Y2="220" />
                                 <Line Stroke="{ThemeResource DividerStrokeColorDefaultBrush}" StrokeDashArray="3,3" X1="0" X2="220" Y1="220" Y2="0" />
-                                <Polyline Points="{x:Bind Pen.CurvePoints, Mode=OneWay}" Stroke="{StaticResource BrandGradientBrush}" StrokeThickness="3" StrokeLineJoin="Round" />
+                                <Polyline x:Name="CurveLine" Stroke="{StaticResource BrandGradientBrush}" StrokeThickness="3" StrokeLineJoin="Round" />
                             </Grid>
                         </Border>
                         <Grid>

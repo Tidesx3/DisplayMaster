@@ -50,7 +50,7 @@
                                    Text="Connect without a cable on the same network. Use 5 GHz Wi-Fi for the best experience. Only turn this on for networks you trust." />
                         <StackPanel Margin="0,6,0,0" Spacing="4" Visibility="{x:Bind ViewModel.WifiEnabled, Mode=OneWay}">
                             <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                                       Text="Nearby devices find this PC automatically. You can also enter one of these addresses:" TextWrapping="Wrap" />
+                                       Text="Nearby devices find this PC automatically. You can also enter this address in the app:" TextWrapping="Wrap" />
                             <TextBlock FontFamily="Cascadia Mono, Consolas" FontSize="16" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.AddressesText, Mode=OneWay}" />
                         </StackPanel>
                         <StackPanel Margin="0,10,0,0" Spacing="6" Visibility="{x:Bind ViewModel.HasTrustedDevices, Mode=OneWay}">

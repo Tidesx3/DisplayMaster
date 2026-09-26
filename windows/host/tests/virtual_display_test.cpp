@@ -25,6 +25,13 @@ TEST(MttVddXml, ParseCount) {
     EXPECT_EQ(MttVddProvider::parse_count("<vdd_settings/>"), 1u);  // driver default
 }
 
+TEST(MttVddXml, SetCount) {
+    const auto out = MttVddProvider::set_count(kXml, 12);
+    EXPECT_EQ(MttVddProvider::parse_count(out), 12u);
+    EXPECT_NE(out.find("<resolutions>"), std::string::npos);
+    EXPECT_EQ(MttVddProvider::set_count("<vdd_settings/>", 3), "<vdd_settings/>");
+}
+
 TEST(MttVddXml, AddsOnlyMissingResolutions) {
     bool changed = false;
     auto out = MttVddProvider::add_resolutions(kXml, {{1920, 1080, 60}}, &changed);
