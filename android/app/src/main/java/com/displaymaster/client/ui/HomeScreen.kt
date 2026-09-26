@@ -33,6 +33,7 @@ import androidx.compose.material.icons.rounded.Gesture
 import androidx.compose.material.icons.rounded.Mouse
 import androidx.compose.material.icons.rounded.OpenInFull
 import androidx.compose.material.icons.automirrored.rounded.ScreenShare
+import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Tune
@@ -255,6 +256,25 @@ private fun WifiCard(
 }
 
 @Composable
+private fun SwitchRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.size(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        Switch(checked = checked, onCheckedChange = onChange)
+    }
+}
+
+@Composable
 private fun SettingsCard(settings: Settings, hasPen: Boolean, onSettings: ((Settings) -> Settings) -> Unit) {
     SectionCard(title = "Preferences", icon = Icons.Rounded.Tune) {
         ChoiceRow(
@@ -277,16 +297,20 @@ private fun SettingsCard(settings: Settings, hasPen: Boolean, onSettings: ((Sett
             selected = settings.maxFps,
             onSelect = { f -> onSettings { it.copy(maxFps = f) } },
         )
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Speed, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.size(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Performance overlay", style = MaterialTheme.typography.bodyLarge)
-                Text("Frame rate, bitrate and latency while streaming", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked = settings.showStats, onCheckedChange = { v -> onSettings { it.copy(showStats = v) } })
-        }
+        SwitchRow(
+            icon = Icons.Rounded.Speed,
+            title = "Performance overlay",
+            subtitle = "Frame rate, bitrate and latency while streaming",
+            checked = settings.showStats,
+            onChange = { v -> onSettings { it.copy(showStats = v) } },
+        )
+        SwitchRow(
+            icon = Icons.Rounded.Keyboard,
+            title = "Shortcut bar",
+            subtitle = "Undo, Ctrl, Space, brush size… on the left edge while streaming",
+            checked = settings.showShortcuts,
+            onChange = { v -> onSettings { it.copy(showShortcuts = v) } },
+        )
         if (hasPen) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Draw, null, tint = LocalStatusColors.current.pen)
