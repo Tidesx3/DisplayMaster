@@ -76,7 +76,8 @@ void Connection::close_gracefully() {
 bool TcpServer::start(uint16_t port, bool allow_lan, AcceptFn on_accept) {
     allow_lan_ = allow_lan;
     on_accept_ = std::move(on_accept);
-    listen_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    // Not inheritable: a child process holding a copy would keep the port open after stop().
+    listen_ = WSASocketW(AF_INET, SOCK_STREAM, IPPROTO_TCP, nullptr, 0, WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
     if (listen_ == INVALID_SOCKET) return false;
     sockaddr_in addr{};
     addr.sin_family = AF_INET;
@@ -107,6 +108,7 @@ void TcpServer::accept_loop() {
         int len = sizeof peer;
         SOCKET s = accept(listen_, reinterpret_cast<sockaddr*>(&peer), &len);
         if (s == INVALID_SOCKET) continue;
+        SetHandleInformation(reinterpret_cast<HANDLE>(s), HANDLE_FLAG_INHERIT, 0);
         char ip[INET_ADDRSTRLEN] = {};
         inet_ntop(AF_INET, &peer.sin_addr, ip, sizeof ip);
         const bool loopback = (ntohl(peer.sin_addr.s_addr) >> 24) == 127;

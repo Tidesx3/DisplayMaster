@@ -47,16 +47,31 @@ int AdbManager::run(const std::wstring& cmdline, std::string& output, uint32_t t
     UniqueHandle read_end(rd), write_end(wr);
     SetHandleInformation(rd, HANDLE_FLAG_INHERIT, 0);
 
-    STARTUPINFOW si{};
-    si.cb = sizeof si;
-    si.dwFlags = STARTF_USESTDHANDLES;
-    si.hStdOutput = wr;
-    si.hStdError = wr;
-    si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+    // adb may fork its long-lived server from this child, and that server keeps whatever
+    // the child inherited. Hand over only the output pipe: an inherited listening socket
+    // would keep the engine's port open and hang its shutdown.
+    SIZE_T attr_size = 0;
+    InitializeProcThreadAttributeList(nullptr, 1, 0, &attr_size);
+    std::vector<uint8_t> attr_buf(attr_size);
+    auto* attrs = reinterpret_cast<LPPROC_THREAD_ATTRIBUTE_LIST>(attr_buf.data());
+    if (!InitializeProcThreadAttributeList(attrs, 1, 0, &attr_size)) return -1;
+    HANDLE inherit[] = {wr};
+    const bool listed =
+        UpdateProcThreadAttribute(attrs, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST, inherit, sizeof inherit, nullptr, nullptr);
+
+    STARTUPINFOEXW si{};
+    si.StartupInfo.cb = sizeof si;
+    si.StartupInfo.dwFlags = STARTF_USESTDHANDLES;
+    si.StartupInfo.hStdOutput = wr;
+    si.StartupInfo.hStdError = wr;
+    si.lpAttributeList = attrs;
     PROCESS_INFORMATION pi{};
     std::wstring cmd = cmdline;
-    if (!CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE, CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi))
-        return -1;
+    const BOOL created = listed && CreateProcessW(nullptr, cmd.data(), nullptr, nullptr, TRUE,
+                                                 CREATE_NO_WINDOW | EXTENDED_STARTUPINFO_PRESENT, nullptr, nullptr,
+                                                 &si.StartupInfo, &pi);
+    DeleteProcThreadAttributeList(attrs);
+    if (!created) return -1;
     UniqueHandle proc(pi.hProcess), thread(pi.hThread);
     write_end.reset();  // so ReadFile sees EOF when the child exits
 
