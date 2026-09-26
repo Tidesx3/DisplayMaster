@@ -309,6 +309,13 @@ void Session::handle(const proto::RawMessage& m) {
                 }
             }
             break;
+        case MsgType::InvalidateFrames:
+            if (auto inv = proto::decode<proto::InvalidateFrames>(m.payload)) {
+                std::lock_guard lock(invalidate_mu_);
+                // Merge with a pending request: the oldest lost frame counts.
+                invalidate_ = invalidate_ ? std::pair(invalidate_->first, inv->last) : std::pair(inv->first, inv->last);
+            }
+            break;
         case MsgType::UdpFallback:
             if (udp_active_.exchange(false)) {
                 // UDP doesn't get through (router, firewall): back to this connection.
@@ -356,6 +363,11 @@ bool Session::log_input(const proto::RawMessage& m) {
             return true;
         default: return false;
     }
+}
+
+std::optional<std::pair<uint32_t, uint32_t>> Session::take_invalidate() {
+    std::lock_guard lock(invalidate_mu_);
+    return std::exchange(invalidate_, std::nullopt);
 }
 
 void Session::set_placement(Placement p) {
@@ -421,6 +433,7 @@ bool Session::setup_pipeline(VideoPipeline& pipe) {
     p.bitrate_kbps = settings.bitrate_kbps ? settings.bitrate_kbps : bitrate_kbps;
     p.usb = usb_;
     p.backend = opts_.backend;
+    p.blank_start = opts_.test_mode || opts_.test_frames;
 
     std::optional<MonitorInfo> mon;
     if (settings.mode == proto::DisplayMode::Extend) {
@@ -511,15 +524,32 @@ void Session::video_loop() {
         const uint64_t since = now_us() - last_frame_us;
         if (since < min_interval_us) precise_sleep_us(min_interval_us - since);
 
-        const bool key = force_keyframe_.exchange(false);
+        bool key = force_keyframe_.exchange(false);
+        // Lost frames: encode the next one from an older reference (recovery frame), else a keyframe.
+        bool recovery = false;
+        if (std::optional<std::pair<uint32_t, uint32_t>> lost; !key && (lost = take_invalidate())) {
+            // Full ids from the low 32 bits the device knows, relative to the newest frame.
+            auto full = [&](uint32_t low) {
+                const uint64_t newest = frame_id ? frame_id - 1 : 0;
+                uint64_t f = (newest & ~0xFFFFFFFFull) | low;
+                if (f > newest) f -= 0x100000000ull;
+                return f;
+            };
+            recovery = pipe.invalidate(full(lost->first), full(lost->second));
+            key = !recovery;
+            DM_LOGD("Session %u: frames %u-%u lost - %s", id_, lost->first, lost->second,
+                    recovery ? "recovery frame" : "keyframe");
+        }
         const uint64_t start = now_us();
-        const auto step = pipe.step(100, key, pkt);
+        // Test mode keeps frames coming on a still desktop, so loss tests have something to lose.
+        const bool test_frames = opts_.test_mode || opts_.test_frames;
+        const auto step = pipe.step(test_frames ? 20 : 100, key, recovery || test_frames, frame_id, pkt);
         switch (step) {
             case VideoPipeline::Step::Frame:
                 last_frame_us = start;
                 frame.frame_id = frame_id++;
                 frame.capture_time_us = start;
-                frame.flags = pkt.keyframe ? proto::kFrameKey : 0;
+                frame.flags = pkt.keyframe ? proto::kFrameKey : pkt.recovery ? proto::kFrameRecovery : 0;
                 frame.data = std::move(pkt.data);
                 stats_bytes += frame.data.size();
                 if (udp_active_)

@@ -38,6 +38,7 @@ enum class MsgType : uint8_t {
     ClientSettings = 14,   // client -> host: user changed mode/quality on the device
     VideoTransport = 15,   // host -> client: video moves to UDP (Wi-Fi) or back to this connection
     UdpFallback = 16,      // client -> host: no UDP video arrives here, keep it on this connection
+    InvalidateFrames = 17, // client -> host: these frames were lost; repair without a keyframe if possible
 
     Touch = 20,  // client -> host
     Pen = 21,
@@ -112,6 +113,8 @@ enum HelloFlags : uint8_t {
     // Wi-Fi: the device doesn't know this PC's key yet, so the PC must show the pairing
     // code for comparison even if it already trusts the device.
     kHelloConfirmPairing = 1u << 0,
+    // The device handles recovery frames (kFrameRecovery) and sends InvalidateFrames on loss.
+    kHelloRecoveryFrames = 1u << 1,
 };
 
 struct Hello {
@@ -193,6 +196,9 @@ struct VideoConfig {
 
 enum VideoFrameFlags : uint8_t {
     kFrameKey = 1u << 0,
+    // First frame encoded after InvalidateFrames: it refers only to frames from before the
+    // loss, so a decoder that skipped the frames in between can continue from here.
+    kFrameRecovery = 1u << 1,
 };
 
 struct VideoFrame {
@@ -303,6 +309,22 @@ struct VideoTransport {
 
     void write(ByteWriter& w) const;
     bool read(ByteReader& r);
+};
+
+// Frames the device lost for good (frame ids, low 32 bits, inclusive). The PC encodes the
+// next frame from an older reference (kFrameRecovery) or, if it can't, sends a keyframe.
+struct InvalidateFrames {
+    static constexpr MsgType kType = MsgType::InvalidateFrames;
+    uint32_t first = 0, last = 0;
+    void write(ByteWriter& w) const {
+        w.u32(first);
+        w.u32(last);
+    }
+    bool read(ByteReader& r) {
+        first = r.u32();
+        last = r.u32();
+        return r.ok();
+    }
 };
 
 struct UdpFallback {

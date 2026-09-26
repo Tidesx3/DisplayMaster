@@ -39,6 +39,7 @@ bool VideoPipeline::init(const PipelineParams& p) {
     frame_ = converter_.create_input_texture();
     nv12_ = converter_.create_output_texture();
     if (!frame_ || !nv12_) return false;
+    have_frame_ = p.blank_start;  // new textures are zero-filled: a valid, dark picture
 
     for (auto c : p.codecs) {
         EncoderConfig cfg;
@@ -57,7 +58,8 @@ bool VideoPipeline::init(const PipelineParams& p) {
     return false;
 }
 
-VideoPipeline::Step VideoPipeline::step(uint32_t timeout_ms, bool force_keyframe, EncodedPacket& out) {
+VideoPipeline::Step VideoPipeline::step(uint32_t timeout_ms, bool force_keyframe, bool force_frame, uint64_t frame_id,
+                                        EncodedPacket& out) {
     const auto result = capture_->next(seen_version_, timeout_ms, frame_.Get());
     const uint64_t work_start = now_us();
     switch (result) {
@@ -66,11 +68,11 @@ VideoPipeline::Step VideoPipeline::step(uint32_t timeout_ms, bool force_keyframe
             have_frame_ = true;
             break;
         case SharedCapture::Result::Timeout:
-            if (!(force_keyframe && have_frame_)) return Step::Idle;
-            break;  // re-encode the last frame as a keyframe
+            if (!((force_keyframe || force_frame) && have_frame_)) return Step::Idle;
+            break;  // re-encode the last frame (as a keyframe, or as the recovery frame)
         case SharedCapture::Result::Lost: return Step::Lost;
     }
-    const bool ok = encoder_->encode(nv12_.Get(), force_keyframe, out);
+    const bool ok = encoder_->encode(nv12_.Get(), force_keyframe, frame_id, out);
     last_work_us_ = now_us() - work_start;
     return ok ? Step::Frame : Step::Error;
 }

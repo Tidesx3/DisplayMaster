@@ -211,6 +211,7 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello, std::optio
     {
         std::lock_guard lock(pair_mu_);
         if (need_confirmation_) hello.flags |= proto::kHelloConfirmPairing;  // the PC shows its code too
+        hello.flags |= proto::kHelloRecoveryFrames;  // UDP losses are repaired without keyframes
         // Declined before Hello (auto-connect to an unknown PC): leave without the PC asking anyone.
         if (need_confirmation_ && pair_decision_ == 0) {
             end_reason = "Pairing cancelled";
@@ -404,13 +405,15 @@ void Client::udp_loop(udp::Key key) {
         }
         proto::VideoFrame f;
         while (assembler.pop(f, now)) on_frame(f);
-        if (const uint32_t lost = assembler.take_lost()) {
+        uint32_t lost_first = 0, lost_last = 0;
+        if (const uint32_t lost = assembler.take_lost(lost_first, lost_last)) {
             udp_lost_ += lost;
             {
                 std::lock_guard lock(dec_mu_);
-                decoder_.resync();
+                decoder_.resync_after(lost_last);
             }
-            request_keyframe();
+            // The PC re-encodes from a frame before the loss (or sends a keyframe if it can't).
+            send(proto::InvalidateFrames{lost_first, lost_last});
         }
         udp_recovered_ += assembler.take_recovered();
         if (now - last_packet_us > 2000000) {

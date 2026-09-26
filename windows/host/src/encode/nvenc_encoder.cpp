@@ -64,6 +64,14 @@ public:
             return false;
         }
         config_ = preset.presetCfg;
+        // Reference frame invalidation (HEVC/AV1; H.264 decoders on Android cope badly with the
+        // gaps it leaves). Needs a DPB deep enough to still hold the frame before a loss.
+        NV_ENC_CAPS_PARAM caps{};
+        caps.version = NV_ENC_CAPS_PARAM_VER;
+        caps.capsToQuery = NV_ENC_CAPS_SUPPORT_REF_PIC_INVALIDATION;
+        int rfi = 0;
+        rfi_ = cfg.codec != proto::Codec::H264 &&
+               nv_.nvEncGetEncodeCaps(enc_, codec_guid, &caps, &rfi) == NV_ENC_SUCCESS && rfi;
         config_.gopLength = NVENC_INFINITE_GOPLENGTH;  // keyframes only on request
         config_.frameIntervalP = 1;                    // no B-frames
         apply_rate_control(cfg.bitrate_kbps);
@@ -79,6 +87,7 @@ public:
             case proto::Codec::HEVC: {
                 auto& h = config_.encodeCodecConfig.hevcConfig;
                 h.idrPeriod = NVENC_INFINITE_GOPLENGTH;
+                if (rfi_) h.maxNumRefFramesInDPB = kRfiDpb;
                 h.repeatSPSPPS = 1;
                 set_vui(h.hevcVUIParameters);
                 break;
@@ -86,6 +95,7 @@ public:
             case proto::Codec::AV1: {
                 auto& a = config_.encodeCodecConfig.av1Config;
                 a.idrPeriod = NVENC_INFINITE_GOPLENGTH;
+                if (rfi_) a.maxNumRefFramesInDPB = kRfiDpb;
                 a.repeatSeqHdr = 1;
                 a.chromaFormatIDC = 1;
                 a.colorPrimaries = NV_ENC_VUI_COLOR_PRIMARIES_BT709;
@@ -121,7 +131,7 @@ public:
         return true;
     }
 
-    bool encode(ID3D11Texture2D* nv12, bool force_keyframe, EncodedPacket& out) override {
+    bool encode(ID3D11Texture2D* nv12, bool force_keyframe, uint64_t frame_id, EncodedPacket& out) override {
         NV_ENC_REGISTERED_PTR reg = registered(nv12);
         if (!reg) return false;
         NV_ENC_MAP_INPUT_RESOURCE map{};
@@ -137,7 +147,7 @@ public:
         pic.bufferFmt = map.mappedBufferFmt;
         pic.outputBitstream = bitstream_;
         pic.pictureStruct = NV_ENC_PIC_STRUCT_FRAME;
-        pic.inputTimeStamp = frame_++;
+        pic.inputTimeStamp = frame_id;  // invalidate() names frames by this
         if (force_keyframe) pic.encodePicFlags = NV_ENC_PIC_FLAG_FORCEIDR | NV_ENC_PIC_FLAG_OUTPUT_SPSPPS;
 
         NVENCSTATUS st = nv_.nvEncEncodePicture(enc_, &pic);
@@ -151,6 +161,9 @@ public:
                 const auto* p = static_cast<const uint8_t*>(lock.bitstreamBufferPtr);
                 out.data.assign(p, p + lock.bitstreamSizeInBytes);
                 out.keyframe = lock.pictureType == NV_ENC_PIC_TYPE_IDR || lock.pictureType == NV_ENC_PIC_TYPE_I;
+                out.recovery = std::exchange(recovery_pending_, false) && !out.keyframe;
+                last_id_ = frame_id;
+                encoded_any_ = true;
                 nv_.nvEncUnlockBitstream(enc_, bitstream_);
             }
         } else {
@@ -158,6 +171,16 @@ public:
         }
         nv_.nvEncUnmapInputResource(enc_, map.mappedResource);
         return ok;
+    }
+
+    bool invalidate(uint64_t first, uint64_t last) override {
+        if (!rfi_ || !encoded_any_ || last > last_id_ || first > last) return false;
+        // The frame before the loss must still be in the DPB (the last kRfiDpb frames).
+        if (first == 0 || last_id_ - (first - 1) >= kRfiDpb) return false;
+        for (uint64_t id = first; id <= last; ++id)
+            if (nv_.nvEncInvalidateRefFrames(enc_, id) != NV_ENC_SUCCESS) return false;
+        recovery_pending_ = true;
+        return true;
     }
 
     bool set_bitrate(uint32_t kbps) override {
@@ -229,7 +252,11 @@ private:
     NV_ENC_INITIALIZE_PARAMS init_params_{};
     EncoderConfig cfg_;
     std::unordered_map<ID3D11Texture2D*, NV_ENC_REGISTERED_PTR> regs_;
-    uint64_t frame_ = 0;
+    static constexpr uint32_t kRfiDpb = 8;
+    bool rfi_ = false;
+    bool recovery_pending_ = false;
+    bool encoded_any_ = false;
+    uint64_t last_id_ = 0;
 };
 
 }  // namespace

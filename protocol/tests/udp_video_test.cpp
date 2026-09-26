@@ -126,7 +126,10 @@ TEST(UdpVideo, UnrepairableFrameIsSkipped) {
     ASSERT_TRUE(a.pop(out, 1000 + FrameAssembler::kReorderWaitUs));
     EXPECT_EQ(out.frame_id, 2u);
     EXPECT_EQ(out.data, f2.data);
-    EXPECT_EQ(a.take_lost(), 1u);
+    uint32_t first = 0, last = 0;
+    EXPECT_EQ(a.take_lost(first, last), 1u);
+    EXPECT_EQ(first, 1u);  // exactly the frame that couldn't be rebuilt
+    EXPECT_EQ(last, 1u);
     for (auto& p : p1) a.add(p, 2000);  // late packets for the skipped frame are ignored
     EXPECT_FALSE(a.pop(out, 3000));
 }

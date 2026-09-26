@@ -55,7 +55,7 @@ int selftest(int seconds, const std::string& out_path, const HostOptions& opts) 
         const uint64_t t0 = now_us();
         // Force a keyframe every 2 s so the dump is seekable.
         const bool key = first || (frames % (2 * p.fps) == 0);
-        const auto r = pipe.step(50, key, pkt);
+        const auto r = pipe.step(50, key, false, frames, pkt);
         if (r == VideoPipeline::Step::Lost || r == VideoPipeline::Step::Error) {
             DM_LOGW("Capture lost, re-initializing");
             if (!pipe.init(p)) return 1;
@@ -122,7 +122,7 @@ int probe_encoders() {
                 bool ok = true;
                 for (uint32_t i = 0; i < kFrames && ok; ++i) {
                     const uint64_t t0 = now_us();
-                    ok = enc->encode(tex.Get(), i == 0, pkt);
+                    ok = enc->encode(tex.Get(), i == 0, i, pkt);
                     const uint64_t dt = now_us() - t0;
                     total += dt;
                     worst = std::max(worst, dt);

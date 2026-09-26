@@ -21,6 +21,9 @@ struct PipelineParams {
     uint32_t bitrate_kbps = 0;         // 0 = automatic
     bool usb = true;                   // affects automatic bitrate
     EncoderBackend backend = EncoderBackend::Auto;
+    // Tests: encode even before the screen delivered a frame (a blank picture), so tests run
+    // with the monitors off or locked, when Desktop Duplication delivers nothing.
+    bool blank_start = false;
 };
 
 class VideoPipeline {
@@ -29,9 +32,10 @@ public:
 
     bool init(const PipelineParams& p);
 
-    // Waits up to timeout_ms for a desktop or pointer change and encodes it. With
-    // force_keyframe and no change, re-encodes the last frame as a keyframe.
-    Step step(uint32_t timeout_ms, bool force_keyframe, EncodedPacket& out);
+    // Waits up to timeout_ms for a desktop or pointer change and encodes it as frame
+    // `frame_id`. With force_keyframe or force_frame and no change, re-encodes the last frame.
+    Step step(uint32_t timeout_ms, bool force_keyframe, bool force_frame, uint64_t frame_id, EncodedPacket& out);
+    bool invalidate(uint64_t first, uint64_t last) { return encoder_ && encoder_->invalidate(first, last); }
 
     bool set_bitrate(uint32_t kbps);
     // GPU work of the last Frame step (copy, convert, encode), excluding the wait for a change.

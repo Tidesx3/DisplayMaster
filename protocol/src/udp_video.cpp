@@ -310,6 +310,8 @@ bool FrameAssembler::pop(proto::VideoFrame& out, uint64_t now_us) {
             if (before(*next_, id) && f.completed_us && now_us - f.completed_us >= kReorderWaitUs) newer_done = true;
         if (!newer_done) return false;
         if (it != frames_.end()) frames_.erase(it);
+        if (!lost_) lost_first_ = *next_;
+        lost_last_ = *next_;
         ++lost_;
         ++*next_;
         // Anything older than the new position is useless now.
@@ -318,6 +320,12 @@ bool FrameAssembler::pop(proto::VideoFrame& out, uint64_t now_us) {
 }
 
 uint32_t FrameAssembler::take_lost() {
+    return std::exchange(lost_, 0);
+}
+
+uint32_t FrameAssembler::take_lost(uint32_t& first, uint32_t& last) {
+    first = lost_first_;
+    last = lost_last_;
     return std::exchange(lost_, 0);
 }
 

@@ -322,6 +322,7 @@ const char* to_string(MsgType t) {
         case MsgType::Encrypted: return "Encrypted";
         case MsgType::VideoTransport: return "VideoTransport";
         case MsgType::UdpFallback: return "UdpFallback";
+        case MsgType::InvalidateFrames: return "InvalidateFrames";
     }
     return "Unknown";
 }

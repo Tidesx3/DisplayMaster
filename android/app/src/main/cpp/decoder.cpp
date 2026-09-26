@@ -85,10 +85,25 @@ void Decoder::release() {
     }
 }
 
+void Decoder::resync_after(uint32_t last_lost) {
+    if (!waiting_for_recovery_ || static_cast<int32_t>(last_lost - recover_after_) > 0) recover_after_ = last_lost;
+    if (!waiting_for_recovery_) lost_at_us_ = mono_us();
+    waiting_for_key_ = true;
+    waiting_for_recovery_ = true;
+}
+
 Decoder::Feed Decoder::feed(const proto::VideoFrame& f) {
     if (!codec_) return Feed::Error;
     const bool key = f.flags & proto::kFrameKey;
-    if (waiting_for_key_ && !key) return Feed::NeedKeyframe;
+    if (waiting_for_key_ && !key) {
+        const bool recovery = waiting_for_recovery_ && (f.flags & proto::kFrameRecovery) &&
+                              static_cast<int32_t>(static_cast<uint32_t>(f.frame_id) - recover_after_) > 0;
+        if (!recovery) {
+            // Give the PC a moment to send its recovery frame before falling back to a keyframe.
+            if (waiting_for_recovery_ && mono_us() - lost_at_us_ < kRecoveryWaitUs) return Feed::Dropped;
+            return Feed::NeedKeyframe;
+        }
+    }
 
     // Wait briefly for an input buffer; if the decoder is backed up, drop and resync.
     const ssize_t idx = AMediaCodec_dequeueInputBuffer(codec_, 20000);
@@ -111,6 +126,7 @@ Decoder::Feed Decoder::feed(const proto::VideoFrame& f) {
     if (AMediaCodec_queueInputBuffer(codec_, static_cast<size_t>(idx), 0, f.data.size(), pts, 0) != AMEDIA_OK)
         return Feed::Error;
     waiting_for_key_ = false;
+    waiting_for_recovery_ = false;
     return Feed::Ok;
 }
 

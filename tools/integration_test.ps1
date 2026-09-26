@@ -30,7 +30,7 @@ function Run-Client([string] $clientArgs) {
 # ---------------------------------------------------------------- USB-style (plain) connections
 $log = Join-Path $env:TEMP 'dm-integration-host.log'
 Remove-Item $log -ErrorAction SilentlyContinue
-$engine = Start-Process $hostExe -ArgumentList "--port $Port --no-adb --no-input --log `"$log`"" -PassThru -WindowStyle Hidden
+$engine = Start-Process $hostExe -ArgumentList "--port $Port --no-adb --no-input --test-frames --log `"$log`"" -PassThru -WindowStyle Hidden
 Start-Sleep -Seconds 2
 try {
     $cases = @(
@@ -83,6 +83,12 @@ try {
     Check 'Wi-Fi: UDP with 10 % packet loss (parity repairs, keyframes recover)' {
         $r = Run-Client "--port $SecurePort --clients 1 --seconds 5 --secure --key $key --udp --loss 10"
         if ($r.Code) { throw 'client failed' }
+    }
+    Check 'Wi-Fi: lost frames repaired by recovery frames, not keyframes (HEVC)' {
+        $r = Run-Client "--port $SecurePort --clients 1 --seconds 8 --secure --key $key --udp --loss 15 --codec hevc"
+        if ($r.Code) { throw 'client failed' }
+        if ($r.Output -notmatch 'repaired by (\d+) recovery frames') { throw 'no repair summary' }
+        if ([int]$Matches[1] -eq 0) { throw 'no recovery frames (NVENC only; an AMD PC falls back to keyframes)' }
     }
     Check 'Wi-Fi: UDP blocked -> falls back to TCP' {
         $r = Run-Client "--port $SecurePort --clients 1 --seconds 5 --secure --key $key --udp --udp-blocked"

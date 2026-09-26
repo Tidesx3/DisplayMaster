@@ -42,6 +42,9 @@ struct HostOptions {
     // Automated tests: own data folder and control pipe, local connections count as
     // Wi-Fi (encrypted, need approval) and new pairings are approved automatically.
     bool test_mode = false;
+    // Tests: frames keep coming (a blank picture until the screen delivers one), so tests
+    // work with the monitors off. Implied by test_mode.
+    bool test_frames = false;
 };
 
 // Where the engine keeps settings, trusted devices and its identity key.
@@ -97,6 +100,7 @@ private:
     bool handshake_step(const proto::RawMessage& m);
     // Wi-Fi: move video to UDP if the device offered a port (only over an encrypted connection).
     void start_udp(uint16_t port);
+    std::optional<std::pair<uint32_t, uint32_t>> take_invalidate();
     void handle(const proto::RawMessage& m);
     bool log_input(const proto::RawMessage& m);
     bool setup_pipeline(class VideoPipeline& pipe);
@@ -131,6 +135,9 @@ private:
     // Parity share, adapted to the loss the device reports: up while frames get lost,
     // back down after a clean stretch.
     static constexpr int kFecPercent = 20, kFecMax = 100;
+    // Frames the device lost (InvalidateFrames, low 32 bits); the video thread repairs them.
+    std::mutex invalidate_mu_;
+    std::optional<std::pair<uint32_t, uint32_t>> invalidate_;
     std::atomic<int> fec_percent_{kFecPercent};
     int clean_stats_ = 0;  // consecutive stats intervals without losses or repairs
 

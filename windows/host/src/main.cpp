@@ -17,6 +17,7 @@
 //     --no-input                log input from devices instead of injecting it
 //     --test-mode               automated tests: separate data folder and control pipe,
 //                               local connections count as Wi-Fi, pairings auto-approved
+//     --test-frames             tests: keep sending frames, a blank one if the screen is off
 //     --log <file>|auto         also log to a file (auto: %LOCALAPPDATA%\DisplayMaster\host.log)
 //     -v                        verbose logging
 //   Diagnostics:
@@ -130,6 +131,8 @@ int wmain(int argc, wchar_t** argv) {
             opts.inject_input = false;
         } else if (a == "--test-mode") {
             opts.test_mode = true;
+        } else if (a == "--test-frames") {
+            opts.test_frames = true;
         } else if (a == "--no-launch") {
             opts.adb_auto_launch = false;
         } else if (a == "--log") {

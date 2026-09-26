@@ -45,6 +45,7 @@ struct Options {
     bool udp = false;
     int loss_percent = 0;
     bool udp_blocked = false;
+    bool rfi = true;  // announce recovery-frame support (like the app); --no-rfi: keyframes only
 };
 
 struct Result {
@@ -60,6 +61,7 @@ struct Result {
     bool udp_video = false;   // the host switched video to UDP
     uint64_t udp_frames = 0, udp_lost = 0, udp_recovered = 0, udp_dropped_by_test = 0;
     bool fell_back = false;   // no UDP arrived; video moved back to TCP
+    uint64_t recoveries = 0, key_repairs = 0;  // how losses were repaired
 };
 
 uint64_t mono_us() {
@@ -158,6 +160,7 @@ Result run_client(const Options& o, int index) {
     hello.settings.mode = o.mode;
     hello.settings.max_fps = 60;
     hello.settings.preferred_codec = o.codec;
+    if (us != INVALID_SOCKET && o.rfi) hello.flags |= proto::kHelloRecoveryFrames;
     if (us != INVALID_SOCKET) {
         sockaddr_in a{};
         int len = sizeof a;
@@ -184,13 +187,21 @@ Result run_client(const Options& o, int index) {
         last_key_request = Clock::now();
         send_msg(proto::encode(proto::RequestKeyframe{}));
     };
+    // After a loss (with RFI): skip frames until a recovery frame newer than the loss or a key.
+    std::optional<uint32_t> recover_after;
+    auto lost_at = Clock::now();
     auto on_frame = [&](const proto::VideoFrame& f) {
         const bool key = f.flags & proto::kFrameKey;
-        if (waiting_for_key && !key) {
-            ask_keyframe();
+        const bool recovery = (f.flags & proto::kFrameRecovery) && recover_after &&
+                              static_cast<int32_t>(static_cast<uint32_t>(f.frame_id) - *recover_after) > 0;
+        if (waiting_for_key && !key && !recovery) {
+            // With RFI the PC repairs by itself; ask for a keyframe only if nothing comes.
+            if (!recover_after || Clock::now() - lost_at > std::chrono::milliseconds(300)) ask_keyframe();
             return;
         }
+        if (waiting_for_key) (key ? r.key_repairs : r.recoveries) += 1;
         waiting_for_key = false;
+        recover_after.reset();
         if (r.frames == 0) r.first_is_key = key;
         if (key && requested_key && r.frames >= key_requested_at_frame) r.keyframe_on_request = true;
         if (r.config.codec != proto::Codec::AV1 && !starts_with_start_code(f.data)) r.annexb_ok = false;
@@ -232,11 +243,18 @@ Result run_client(const Options& o, int index) {
                 ++r.udp_frames;
                 on_frame(f);
             }
-            if (const uint32_t lost = assembler.take_lost()) {
+            uint32_t lost_first = 0, lost_last = 0;
+            if (const uint32_t lost = assembler.take_lost(lost_first, lost_last)) {
                 r.udp_lost += lost;
                 stats_lost += lost;
                 waiting_for_key = true;
-                ask_keyframe();
+                lost_at = Clock::now();
+                if (o.rfi) {
+                    recover_after = recover_after ? std::max(*recover_after, lost_last) : lost_last;
+                    send_msg(proto::encode(proto::InvalidateFrames{lost_first, lost_last}));
+                } else {
+                    ask_keyframe();
+                }
             }
             const uint32_t recovered = assembler.take_recovered();
             r.udp_recovered += recovered;
@@ -381,6 +399,8 @@ int main(int argc, char** argv) {
             o.loss_percent = std::stoi(next());
         } else if (a == "--udp-blocked") {
             o.udp_blocked = true;
+        } else if (a == "--no-rfi") {
+            o.rfi = false;
         }
     }
     WSADATA wsa;
@@ -400,9 +420,10 @@ int main(int argc, char** argv) {
                r.frames / static_cast<double>(o.seconds), r.bytes * 8.0 / o.seconds / 1e6, r.rtt_ms,
                r.ok ? "" : "  -> ", r.error.c_str());
         if (r.udp_video)
-            printf("client %zu: UDP video: %llu frames, %llu lost, %llu shards rebuilt, %llu datagrams dropped by the test%s\n",
+            printf("client %zu: UDP video: %llu frames, %llu lost, %llu shards rebuilt, %llu datagrams dropped by the test%s\n"
+                   "client %zu: losses repaired by %llu recovery frames, %llu keyframes\n",
                    i + 1, r.udp_frames, r.udp_lost, r.udp_recovered, r.udp_dropped_by_test,
-                   r.fell_back ? ", fell back to TCP" : "");
+                   r.fell_back ? ", fell back to TCP" : "", i + 1, r.recoveries, r.key_repairs);
         if (!r.pairing_code.empty())
             printf("client %zu: encrypted, pairing code %s%s\n", i + 1, r.pairing_code.c_str(),
                    r.approval_requested ? "" : ", already paired");

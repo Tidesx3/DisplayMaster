@@ -80,10 +80,12 @@ public:
     bool pop(proto::VideoFrame& out, uint64_t now_us);
 
     uint32_t take_lost();       // frames skipped since the last call
+    // Like take_lost(), also giving the id range of the skipped frames (low 32 bits).
+    uint32_t take_lost(uint32_t& first, uint32_t& last);
     uint32_t take_recovered();  // data shards rebuilt from parity since the last call
 
     // A frame counts as lost once a newer one is complete and it stayed incomplete this long.
-    static constexpr uint64_t kReorderWaitUs = 30000;
+    static constexpr uint64_t kReorderWaitUs = 15000;
 
 private:
     struct Block {
@@ -104,6 +106,7 @@ private:
     std::map<uint32_t, Frame> frames_;
     std::optional<uint32_t> next_;
     uint32_t lost_ = 0, recovered_ = 0;
+    uint32_t lost_first_ = 0, lost_last_ = 0;
 };
 
 }  // namespace dm::udp

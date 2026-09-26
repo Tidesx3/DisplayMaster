@@ -25,8 +25,11 @@ public:
 
     enum class Feed { Ok, NeedKeyframe, Dropped, Error };
     Feed feed(const proto::VideoFrame& f);
-    // A frame went missing (UDP): later frames refer to it, so wait for the next keyframe.
-    void resync() { waiting_for_key_ = true; }
+    // Frames up to `last_lost` went missing (UDP): later frames refer to them, so skip until
+    // the PC's recovery frame (newer than the loss) or a keyframe; ask for a keyframe only
+    // if no recovery frame comes within kRecoveryWaitUs.
+    void resync_after(uint32_t last_lost);
+    static constexpr uint64_t kRecoveryWaitUs = 300000;
 
     // Stats since last call.
     struct Stats {
@@ -43,6 +46,9 @@ private:
     std::thread out_thread_;
     std::atomic<bool> running_{false};
     bool waiting_for_key_ = true;
+    bool waiting_for_recovery_ = false;
+    uint32_t recover_after_ = 0;
+    uint64_t lost_at_us_ = 0;
     std::mutex stats_mu_;
     Stats stats_;
     uint64_t decode_us_sum_ = 0;

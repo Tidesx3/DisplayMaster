@@ -160,7 +160,7 @@ public:
         return true;
     }
 
-    bool encode(ID3D11Texture2D* nv12, bool force_keyframe, EncodedPacket& out) override {
+    bool encode(ID3D11Texture2D* nv12, bool force_keyframe, uint64_t /*frame_id*/, EncodedPacket& out) override {
         amf::AMFSurfacePtr surf;
         if (ctx_->CreateSurfaceFromDX11Native(nv12, &surf, nullptr) != AMF_OK) return false;
         if (force_keyframe) {
