@@ -37,6 +37,8 @@ public:
 
 private:
     bool start_listening();
+    // Saved picture settings (host.ini) into opts_; command-line flags win.
+    void load_stream_options();
     void update_advertising();
     std::string status_json();
 

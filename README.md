@@ -61,17 +61,18 @@ minSdk 24 (Android 7). Native libraries are 16 KB page aligned.
 Download or build **`DisplayMaster-Setup-<version>.exe`** and run it. One installer contains
 everything: the app, the engine, `adb`, the Android app (installed automatically on plugged-in
 devices) and the signed [Virtual Display Driver](https://github.com/VirtualDrivers/Virtual-Display-Driver)
-for Extend mode. Options: *virtual display driver*, *start at sign-in* (off by default), *allow private Wi-Fi networks*.
+for Extend mode. Options: *virtual display driver*, *allow private Wi-Fi networks*. Starting at sign-in
+is a switch in the app (Settings, off by default).
 Windows may ask once to trust the driver publisher (SignPath Foundation).
 
-* Unattended, e.g. on other PCs: `DisplayMaster-Setup-0.1.0.exe /VERYSILENT /TASKS="vdd,autostart,firewall"`
+* Unattended, e.g. on other PCs: `DisplayMaster-Setup-<version>.exe /VERYSILENT /TASKS="vdd,firewall"`
 * Uninstall from *Settings → Apps* (or `unins000.exe /VERYSILENT`). It removes the engine task,
-  firewall rule and autostart; the driver is removed only if the installer added it (you're asked).
+  firewall rule and sign-in autostart; the driver is removed only if the installer added it (you're asked).
 * Requires Windows 10 1809+ x64.
 
 What it sets up: the engine starts **with the app** and runs elevated and windowless through an
 on-demand scheduled task (`\DisplayMaster\Engine`), so pen/touch reach admin apps and there's no
-UAC prompt later. Nothing starts at sign-in unless you tick *start at sign-in*. Closing or
+UAC prompt later. Nothing starts at sign-in unless you turn on *Start when I sign in* (Settings). Closing or
 minimizing the window keeps DisplayMaster in the tray; *Quit* in the tray menu stops the engine
 too. The firewall rule allows the engine on *Private* networks only.
 

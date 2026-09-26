@@ -16,6 +16,8 @@ public sealed partial class UpdateViewModel : ObservableObject
     [ObservableProperty] public partial bool IsBusy { get; set; }
     [ObservableProperty] public partial double Progress { get; set; }
     [ObservableProperty] public partial string Error { get; set; } = "";
+    /// <summary>Result of "Check for updates" on the Settings page.</summary>
+    [ObservableProperty] public partial string CheckResult { get; set; } = "";
 
     public string NotesUrl => _update?.NotesUrl ?? UpdateService.ReleasesPage;
 
@@ -34,11 +36,37 @@ public sealed partial class UpdateViewModel : ObservableObject
         _timer.Start();
     }
 
+    [RelayCommand]
+    private async Task CheckNowAsync()
+    {
+        CheckResult = "Checking…";
+        try
+        {
+            var update = await UpdateService.CheckOrThrowAsync();
+            if (update is null)
+            {
+                CheckResult = "You have the latest version.";
+                return;
+            }
+            Show(update);
+            CheckResult = $"Version {update.Version.ToString(3)} is available - see the banner above.";
+        }
+        catch (Exception)
+        {
+            CheckResult = "Couldn't reach GitHub. Check the internet connection and try again.";
+        }
+    }
+
     private async Task CheckAsync()
     {
         if (IsBusy) return;
         var update = await UpdateService.CheckAsync();
         if (update is null) return;
+        Show(update);
+    }
+
+    private void Show(UpdateInfo update)
+    {
         _update = update;
         Message = $"DisplayMaster {update.Version.ToString(3)} is available (you have {UpdateService.CurrentVersion.ToString(3)}).";
         OnPropertyChanged(nameof(NotesUrl));

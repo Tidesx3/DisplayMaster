@@ -48,6 +48,19 @@ public static class UpdateService
     {
         try
         {
+            return await CheckOrThrowAsync(ct);
+        }
+        catch (Exception e)
+        {
+            Debug.WriteLine($"Update check failed: {e.Message}");  // offline, rate limited, no releases yet
+            return null;
+        }
+    }
+
+    /// <summary>Like <see cref="CheckAsync"/>, but failures (offline, GitHub unreachable) throw.</summary>
+    public static async Task<UpdateInfo?> CheckOrThrowAsync(CancellationToken ct = default)
+    {
+        {
             var release = await Http.GetFromJsonAsync<Release>(
                 $"https://api.github.com/repos/{Repository}/releases/latest", Json, ct);
             if (release is null || release.Draft || release.Prerelease) return null;
@@ -61,11 +74,6 @@ public static class UpdateService
                 return null;
             return new UpdateInfo(version, setup.BrowserDownloadUrl, setup.Name, digest["sha256:".Length..].ToLowerInvariant(),
                                   release.HtmlUrl ?? ReleasesPage);
-        }
-        catch (Exception e)
-        {
-            Debug.WriteLine($"Update check failed: {e.Message}");  // offline, rate limited, no releases yet
-            return null;
         }
     }
 

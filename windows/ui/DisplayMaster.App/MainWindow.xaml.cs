@@ -33,8 +33,9 @@ public sealed partial class MainWindow : Window
 
         // --page=connection opens a specific page (tray menu entries, UI screenshots).
         var page = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--page="))?["--page=".Length..];
-        Nav.SelectedItem = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == page)
-                           ?? Nav.MenuItems[0];
+        Nav.SelectedItem = page == "settings"
+            ? Nav.SettingsItem
+            : Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == page) ?? Nav.MenuItems[0];
     }
 
     private async void ReleaseNotes_Click(object sender, RoutedEventArgs e) =>
@@ -45,12 +46,14 @@ public sealed partial class MainWindow : Window
 
     private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {
-        var page = (args.SelectedItem as NavigationViewItem)?.Tag switch
-        {
-            "connection" => typeof(ConnectionPage),
-            "pen" => typeof(PenPage),
-            _ => typeof(DevicesPage),
-        };
+        var page = args.IsSettingsSelected
+            ? typeof(SettingsPage)
+            : (args.SelectedItem as NavigationViewItem)?.Tag switch
+            {
+                "connection" => typeof(ConnectionPage),
+                "pen" => typeof(PenPage),
+                _ => typeof(DevicesPage),
+            };
         ContentFrame.Navigate(page, null, new EntranceNavigationTransitionInfo());
     }
 }

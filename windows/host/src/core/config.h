@@ -17,6 +17,8 @@ public:
     void set_bool(const std::string& key, bool value);
     float get_float(const std::string& key, float fallback) const;
     void set_float(const std::string& key, float value);
+    std::string get_string(const std::string& key, const std::string& fallback) const;
+    void set_string(const std::string& key, const std::string& value);
 
     static std::filesystem::path default_path();
 

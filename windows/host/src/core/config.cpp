@@ -56,6 +56,18 @@ void Config::set_float(const std::string& key, float value) {
     save();
 }
 
+std::string Config::get_string(const std::string& key, const std::string& fallback) const {
+    std::lock_guard lock(mu_);
+    auto it = values_.find(key);
+    return it == values_.end() ? fallback : it->second;
+}
+
+void Config::set_string(const std::string& key, const std::string& value) {
+    std::lock_guard lock(mu_);
+    values_[key] = value;
+    save();
+}
+
 void Config::set_bool(const std::string& key, bool value) {
     std::lock_guard lock(mu_);
     values_[key] = value ? "1" : "0";

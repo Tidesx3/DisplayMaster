@@ -1,6 +1,6 @@
 ; DisplayMaster installer (Inno Setup 7). Built by tools\package.ps1 from dist\DisplayMaster.
 ;   ISCC /DAppVersion=0.1.0 /DSourceDir=..\..\dist\DisplayMaster DisplayMaster.iss
-; Silent install on other machines:  DisplayMaster-Setup.exe /VERYSILENT [/TASKS="vdd,autostart,firewall"]
+; Silent install on other machines:  DisplayMaster-Setup.exe /VERYSILENT [/TASKS="vdd,firewall"]
 ; In-app updates run it with /SILENT /relaunch=1 (keeps the previous choices, starts the app again).
 
 #ifndef AppVersion
@@ -39,7 +39,6 @@ LicenseFile=..\..\LICENSE
 
 [Tasks]
 Name: "vdd"; Description: "Install the virtual display driver (needed to extend the desktop)"; GroupDescription: "Components:"
-Name: "autostart"; Description: "Start DisplayMaster when I sign in"; GroupDescription: "Components:"; Flags: unchecked
 Name: "firewall"; Description: "Allow devices on private Wi-Fi networks to connect"; GroupDescription: "Components:"
 
 [Files]
@@ -49,11 +48,11 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 Name: "{autoprograms}\DisplayMaster"; Filename: "{app}\DisplayMaster.exe"; Comment: "Use your Android tablet or phone as a second screen"
 
 [Registry]
-; Optional: tray app at sign-in (the app starts the engine). Otherwise drop an older entry.
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "DisplayMaster"; \
-  ValueData: """{app}\DisplayMaster.exe"" --tray"; Flags: uninsdeletevalue; Tasks: autostart
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "DisplayMaster"; \
-  Flags: deletevalue; Tasks: not autostart
+; Start at sign-in is a switch in the app (Settings; per user, HKCU). Earlier installers set it
+; machine-wide: drop that entry. Uninstalling removes the per-user one.
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "DisplayMaster"; Flags: deletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: none; ValueName: "DisplayMaster"; \
+  Flags: uninsdeletevalue dontcreatekey
 ; Remember whether we installed the driver, so uninstall only removes what it added.
 Root: HKLM; Subkey: "Software\DisplayMaster"; ValueType: dword; ValueName: "InstalledVdd"; ValueData: 1; \
   Flags: uninsdeletekey; Tasks: vdd

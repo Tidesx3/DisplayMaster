@@ -107,15 +107,19 @@ int wmain(int argc, wchar_t** argv) {
             opts.force_mode = v == "mirror" ? proto::DisplayMode::Mirror : proto::DisplayMode::Extend;
         } else if (a == "--codec") {
             opts.codec = parse_codec(next());
+            opts.stream_from_cli = true;
         } else if (a == "--encoder") {
             const auto v = next();
             opts.backend = v == "nvenc" ? EncoderBackend::Nvenc : v == "amf" ? EncoderBackend::Amf : EncoderBackend::Auto;
         } else if (a == "--bitrate") {
             opts.bitrate_kbps = static_cast<uint32_t>(std::stoul(next()));
+            opts.stream_from_cli = true;
         } else if (a == "--fps") {
             opts.max_fps = static_cast<uint32_t>(std::stoul(next()));
+            opts.stream_from_cli = true;
         } else if (a == "--scale") {
             opts.resolution_scale = std::stof(next());
+            opts.stream_from_cli = true;
         } else if (a == "--port") {
             opts.port = static_cast<uint16_t>(std::stoul(next()));
         } else if (a == "--wifi") {

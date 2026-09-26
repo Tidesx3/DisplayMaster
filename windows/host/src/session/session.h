@@ -32,6 +32,8 @@ struct HostOptions {
     uint32_t max_fps = 120;
     float resolution_scale = 1.0f;      // virtual monitor size relative to the device panel
     bool inject_input = true;           // false: log input instead of injecting (testing)
+    // --codec/--bitrate/--fps/--scale given: they win over the app's settings.
+    bool stream_from_cli = false;
     PressureCurve pen_curve;            // shaping applied to pen pressure
     // Automated tests: own data folder and control pipe, local connections count as
     // Wi-Fi (encrypted, need approval) and new pairings are approved automatically.
@@ -72,6 +74,8 @@ public:
     std::string device_name() const;
     SessionStatus status() const;
     void set_pressure_curve(const PressureCurve& c) { input_.set_pressure_curve(c); }
+    // Picture settings from the app (codec, bitrate, fps cap, scale); restarts the video.
+    void set_stream_options(const HostOptions& o);
     // Ends the session from the PC side, telling the device why.
     void kick(const std::string& reason);
 

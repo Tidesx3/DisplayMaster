@@ -302,6 +302,15 @@ bool Session::log_input(const proto::RawMessage& m) {
     }
 }
 
+void Session::set_stream_options(const HostOptions& o) {
+    std::lock_guard lock(mu_);
+    opts_.codec = o.codec;
+    opts_.bitrate_kbps = o.bitrate_kbps;
+    opts_.max_fps = o.max_fps;
+    opts_.resolution_scale = o.resolution_scale;
+    reconfigure_ = true;
+}
+
 std::vector<proto::Codec> Session::codec_order() const {
     std::vector<proto::Codec> order;
     auto add = [&](proto::Codec c) {
@@ -318,20 +327,25 @@ bool Session::setup_pipeline(VideoPipeline& pipe) {
     proto::DisplayGeometry geo;
     proto::ClientSettings settings;
     std::vector<proto::Codec> codecs;
+    uint32_t max_fps, bitrate_kbps;
+    float scale;
     {
-        std::lock_guard lock(mu_);
+        std::lock_guard lock(mu_);  // the app can change the stream options meanwhile
         geo = hello_.geometry;
         settings = settings_;
         codecs = codec_order();
+        max_fps = opts_.max_fps;
+        bitrate_kbps = opts_.bitrate_kbps;
+        scale = opts_.resolution_scale;
     }
     const uint32_t device_hz = std::max(30u, (geo.refresh_mhz + 500) / 1000);
-    const uint32_t fps = std::min({device_hz, settings.max_fps ? settings.max_fps : 120u, opts_.max_fps});
-    const Size panel = virtual_mode_for_panel(geo.width_px, geo.height_px, opts_.resolution_scale);
+    const uint32_t fps = std::min({device_hz, settings.max_fps ? settings.max_fps : 120u, max_fps});
+    const Size panel = virtual_mode_for_panel(geo.width_px, geo.height_px, scale);
 
     PipelineParams p;
     p.codecs = codecs;
     p.fps = fps;
-    p.bitrate_kbps = settings.bitrate_kbps ? settings.bitrate_kbps : opts_.bitrate_kbps;
+    p.bitrate_kbps = settings.bitrate_kbps ? settings.bitrate_kbps : bitrate_kbps;
     p.usb = usb_;
     p.backend = opts_.backend;
 

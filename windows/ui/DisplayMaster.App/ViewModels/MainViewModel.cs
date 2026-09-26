@@ -73,6 +73,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<DeviceViewModel> Devices { get; } = new();
     public PenViewModel Pen { get; }
     public UpdateViewModel Update { get; }
+    public SettingsViewModel Settings { get; }
     public ObservableCollection<TrustedDevice> TrustedDevices { get; } = new();
     private readonly HashSet<int> _announcedApprovals = new();
 
@@ -119,6 +120,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
         };
         Pen = new PenViewModel(_host, dispatcher);
         Update = new UpdateViewModel(dispatcher);
+        Settings = new SettingsViewModel(_host, dispatcher);
         _timer = dispatcher.CreateTimer();
         _timer.Interval = TimeSpan.FromSeconds(1);
         _timer.Tick += async (_, _) => await PollAsync();
@@ -152,6 +154,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                     : "";
                 UsbDevicesText = h.AdbReady.Count > 0 ? string.Join(", ", h.AdbReady) : "None";
                 if (h.Pen is { } pen) Pen.Load(pen);
+                if (h.Stream is { } stream) Settings.Load(stream);
             }
             _applyingHostState = false;
             SyncDevices(status?.Sessions ?? new List<SessionInfo>());

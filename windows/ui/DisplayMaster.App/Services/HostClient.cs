@@ -19,7 +19,10 @@ public sealed record TrustedDevice(string DeviceId, string Name);
 public sealed record HostInfo(
     string Name, int Port, bool Wifi, bool Elevated, bool Vdd, bool Adb,
     List<string> Addresses, List<string> AdbReady, List<string> AdbUnauthorized, PenCurve? Pen,
-    string? ApkPath = null);
+    string? ApkPath = null, StreamSettings? Stream = null);
+
+/// <summary>Picture settings. BitrateKbps 0 = automatic; Locked = set by engine command-line flags.</summary>
+public sealed record StreamSettings(string Codec, int BitrateKbps, int MaxFps, double Scale, bool Locked);
 
 public sealed record PenCurve(double Min, double Max, double Gamma);
 
@@ -68,6 +71,10 @@ public sealed class HostClient : IDisposable
         RequestAsync($"{{\"cmd\":\"forget_device\",\"device_id\":{JsonSerializer.Serialize(deviceId)}}}");
 
     private static string Bool(bool b) => b ? "true" : "false";
+
+    public Task SetStreamAsync(int bitrateKbps, int maxFps, double scale, string codec) =>
+        RequestAsync(FormattableString.Invariant(
+            $"{{\"cmd\":\"set_stream\",\"bitrate_kbps\":{bitrateKbps},\"max_fps\":{maxFps},\"scale\":{scale:0.###},\"codec\":\"{codec}\"}}"));
 
     public Task SetPenAsync(double min, double max, double gamma) =>
         RequestAsync(string.Create(System.Globalization.CultureInfo.InvariantCulture,

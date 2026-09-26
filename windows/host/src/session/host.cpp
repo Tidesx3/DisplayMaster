@@ -91,10 +91,40 @@ std::filesystem::path host_data_dir(const HostOptions& opts) {
     return Config::default_path().parent_path();
 }
 
+namespace {
+
+const char* codec_setting(const std::optional<proto::Codec>& c) {
+    if (!c) return "auto";
+    switch (*c) {
+        case proto::Codec::H264: return "h264";
+        case proto::Codec::HEVC: return "hevc";
+        case proto::Codec::AV1: return "av1";
+    }
+    return "auto";
+}
+
+std::optional<proto::Codec> codec_from_setting(const std::string& s) {
+    if (s == "h264") return proto::Codec::H264;
+    if (s == "hevc") return proto::Codec::HEVC;
+    if (s == "av1") return proto::Codec::AV1;
+    return std::nullopt;
+}
+
+}  // namespace
+
+void Host::load_stream_options() {
+    if (opts_.stream_from_cli) return;
+    opts_.codec = codec_from_setting(config_.get_string("codec", "auto"));
+    opts_.bitrate_kbps = static_cast<uint32_t>(std::clamp(config_.get_float("bitrate_kbps", 0), 0.0f, 300000.0f));
+    opts_.max_fps = static_cast<uint32_t>(std::clamp(config_.get_float("max_fps", 120), 24.0f, 240.0f));
+    opts_.resolution_scale = std::clamp(config_.get_float("scale", 1.0f), 0.25f, 2.0f);
+}
+
 Host::Host(const HostOptions& opts) : opts_(opts), vdm_(std::make_unique<MttVddProvider>()) {
     allow_wifi_ = opts_.allow_wifi.value_or(config_.get_bool("wifi", false));
     opts_.pen_curve = {config_.get_float("pen_min", 0.0f), config_.get_float("pen_max", 1.0f),
                        config_.get_float("pen_gamma", 1.0f)};
+    load_stream_options();
 }
 
 Host::~Host() {
@@ -190,6 +220,22 @@ std::string Host::handle_control(const std::string& request) {
         approvals_.forget(json::get_string(request, "device_id").value_or(""));
         return ok_json();
     }
+    if (cmd == "set_stream") {
+        // Picture settings: bitrate_kbps (0 = automatic), max_fps, scale (virtual screen size
+        // relative to the device), codec ("auto", "hevc", "h264", "av1").
+        if (opts_.stream_from_cli) return error_json("set on the engine command line");
+        const auto num = [&](const char* key, double fallback) { return json::get_number(request, key).value_or(fallback); };
+        config_.set_float("bitrate_kbps", static_cast<float>(std::clamp(num("bitrate_kbps", 0), 0.0, 300000.0)));
+        config_.set_float("max_fps", static_cast<float>(std::clamp(num("max_fps", 120), 24.0, 240.0)));
+        config_.set_float("scale", static_cast<float>(std::clamp(num("scale", 1), 0.25, 2.0)));
+        config_.set_string("codec", codec_setting(codec_from_setting(json::get_string(request, "codec").value_or("auto"))));
+        std::lock_guard lock(mu_);
+        load_stream_options();
+        for (auto& [id, s] : sessions_) s->set_stream_options(opts_);  // running streams restart with them
+        DM_LOGI("Picture settings: %s, %u kbps (0 = auto), up to %u fps, scale %.2f", codec_setting(opts_.codec),
+                opts_.bitrate_kbps, opts_.max_fps, opts_.resolution_scale);
+        return ok_json();
+    }
     if (cmd == "set_pen") {
         // Pressure below `min` is ignored, `max` and above is full pressure, gamma shapes the rest.
         auto num = [&](const char* key, double fallback) {
@@ -226,10 +272,20 @@ std::string Host::status_json() {
     w.key("host").begin_object();
     w.field("name", to_utf8(name)).field("port", static_cast<int>(opts_.port)).field("wifi", allow_wifi_);
     PressureCurve pen;
+    HostOptions stream;
     {
-        std::lock_guard lock(mu_);  // set_pen writes it under this lock
+        std::lock_guard lock(mu_);  // set_pen / set_stream write them under this lock
         pen = opts_.pen_curve;
+        stream = opts_;
     }
+    w.key("stream")
+        .begin_object()
+        .field("codec", codec_setting(stream.codec))
+        .field("bitrate_kbps", stream.bitrate_kbps)
+        .field("max_fps", stream.max_fps)
+        .field("scale", static_cast<double>(stream.resolution_scale))
+        .field("locked", stream.stream_from_cli)
+        .end_object();
     w.key("pen")
         .begin_object()
         .field("min", static_cast<double>(pen.min_in))

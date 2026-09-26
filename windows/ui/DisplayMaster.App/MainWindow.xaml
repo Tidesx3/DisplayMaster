@@ -33,7 +33,7 @@
             Grid.Row="1"
             IsBackButtonVisible="Collapsed"
             IsPaneToggleButtonVisible="False"
-            IsSettingsVisible="False"
+            IsSettingsVisible="True"
             OpenPaneLength="220"
             PaneDisplayMode="Left"
             SelectionChanged="Nav_SelectionChanged">
