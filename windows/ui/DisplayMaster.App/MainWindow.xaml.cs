@@ -9,6 +9,8 @@ namespace DisplayMaster;
 
 public sealed partial class MainWindow : Window
 {
+    public ViewModels.UpdateViewModel Update => App.ViewModel.Update;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -34,6 +36,9 @@ public sealed partial class MainWindow : Window
         Nav.SelectedItem = Nav.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => (string)i.Tag == page)
                            ?? Nav.MenuItems[0];
     }
+
+    private async void ReleaseNotes_Click(object sender, RoutedEventArgs e) =>
+        await Windows.System.Launcher.LaunchUriAsync(new Uri(Update.NotesUrl));
 
     [System.Runtime.InteropServices.DllImport("user32.dll")]
     private static extern uint GetDpiForWindow(IntPtr hwnd);

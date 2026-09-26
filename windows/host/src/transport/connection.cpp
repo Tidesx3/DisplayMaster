@@ -61,6 +61,18 @@ void Connection::close() {
     closesocket(s_);
 }
 
+void Connection::close_gracefully() {
+    if (closed_) return;
+    shutdown(s_, SD_SEND);
+    // Wait (bounded) for the peer to close its side, discarding whatever it still sends.
+    DWORD timeout_ms = 5000;
+    setsockopt(s_, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<const char*>(&timeout_ms), sizeof timeout_ms);
+    char sink[1024];
+    while (!closed_ && ::recv(s_, sink, sizeof sink, 0) > 0) {
+    }
+    close();
+}
+
 bool TcpServer::start(uint16_t port, bool allow_lan, AcceptFn on_accept) {
     allow_lan_ = allow_lan;
     on_accept_ = std::move(on_accept);

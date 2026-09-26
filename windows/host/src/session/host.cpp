@@ -1,4 +1,5 @@
 #include "session/host.h"
+#include "transport/apk_server.h"
 
 #include <algorithm>
 
@@ -214,7 +215,7 @@ std::string Host::status_json() {
     GetComputerNameW(name, &len);
 
     json::Writer w;
-    w.begin_object().field("ok", true).field("version", "0.1.0");
+    w.begin_object().field("ok", true).field("version", DM_VERSION);
     w.key("host").begin_object();
     w.field("name", to_utf8(name)).field("port", static_cast<int>(opts_.port)).field("wifi", allow_wifi_);
     PressureCurve pen;
@@ -228,7 +229,10 @@ std::string Host::status_json() {
         .field("max", static_cast<double>(pen.max_in))
         .field("gamma", static_cast<double>(pen.gamma))
         .end_object();
+    std::error_code ec;
     w.field("elevated", is_elevated()).field("vdd", vdm_.available()).field("adb", !adb_.adb_path().empty());
+    // Phones download the Android app from http://<address>:<port><apk_path> (Wi-Fi on).
+    w.field("apk_path", std::filesystem::exists(bundled_apk_path(), ec) ? kApkUrlPath : "");
     w.key("addresses").begin_array();
     for (const auto& a : lan_ipv4_addresses()) w.value(a);
     w.end_array();

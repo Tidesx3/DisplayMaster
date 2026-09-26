@@ -54,7 +54,36 @@
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </NavigationView.MenuItems>
-            <Frame x:Name="ContentFrame" />
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <!-- New release on GitHub: one click downloads, verifies and installs it. -->
+                <InfoBar
+                    MaxWidth="960"
+                    Margin="40,16,40,0"
+                    IsClosable="False"
+                    IsOpen="{x:Bind Update.IsAvailable, Mode=OneWay}"
+                    Message="{x:Bind Update.Message, Mode=OneWay}"
+                    Severity="Informational"
+                    Title="Update available">
+                    <InfoBar.Content>
+                        <StackPanel Margin="0,0,0,14" Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Command="{x:Bind Update.InstallCommand}" Content="Update now" Style="{StaticResource AccentButtonStyle}" />
+                                <HyperlinkButton Click="ReleaseNotes_Click" Content="What's new" />
+                                <Button Command="{x:Bind Update.DismissCommand}" Content="Later" />
+                                <ProgressBar Width="160" VerticalAlignment="Center" Value="{x:Bind Update.Progress, Mode=OneWay}"
+                                             Visibility="{x:Bind Update.IsBusy, Mode=OneWay}" />
+                            </StackPanel>
+                            <TextBlock Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind Update.Error, Mode=OneWay}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </InfoBar.Content>
+                </InfoBar>
+                <Frame x:Name="ContentFrame" Grid.Row="1" />
+            </Grid>
         </NavigationView>
     </Grid>
 </Window>

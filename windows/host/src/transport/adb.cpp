@@ -1,4 +1,5 @@
 #include "transport/adb.h"
+#include "transport/apk_server.h"
 
 #include <windows.h>
 
@@ -99,22 +100,30 @@ bool AdbManager::start(uint16_t port, bool auto_launch_app) {
     return true;
 }
 
-// First plug-in of a device without the app: install the APK bundled next to the engine
-// (android\DisplayMaster.apk), so the cable is all that's needed.
+// Device without the app, or with another version than this engine's: install the APK
+// bundled next to the engine (android\DisplayMaster.apk), so the cable is all that's needed
+// and PC updates reach the device too.
 void AdbManager::ensure_app_installed(const std::wstring& adb, const std::wstring& serial) {
     std::string out;
-    run(adb + L" -s " + serial + L" shell pm path " + to_wide(kAppPackage), out);
-    if (out.find("package:") != std::string::npos) return;
+    run(adb + L" -s " + serial + L" shell dumpsys package " + to_wide(kAppPackage), out);
+    constexpr std::string_view kKey = "versionName=";
+    const auto at = out.find(kKey);
+    const auto begin = at + kKey.size();
+    const std::string installed =
+        at == std::string::npos ? "" : out.substr(begin, out.find_first_of("\r\n ", begin) - begin);
+    if (installed == DM_VERSION) return;
 
-    wchar_t exe[MAX_PATH];
-    GetModuleFileNameW(nullptr, exe, MAX_PATH);
-    const fs::path apk = fs::path(exe).parent_path() / L"android" / L"DisplayMaster.apk";
+    const fs::path apk = bundled_apk_path();
     std::error_code ec;
     if (!fs::exists(apk, ec)) {
         DM_LOGW("ADB: %s doesn't have the DisplayMaster app and no APK is bundled", to_utf8(serial).c_str());
         return;
     }
-    DM_LOGI("ADB: installing the DisplayMaster app on %s", to_utf8(serial).c_str());
+    if (installed.empty())
+        DM_LOGI("ADB: installing the DisplayMaster app on %s", to_utf8(serial).c_str());
+    else
+        DM_LOGI("ADB: updating the DisplayMaster app on %s (%s -> %s)", to_utf8(serial).c_str(), installed.c_str(),
+                DM_VERSION);
     if (run(adb + L" -s " + serial + L" install -r \"" + apk.wstring() + L"\"", out, 120000) != 0)
         DM_LOGW("ADB: install failed: %s", out.c_str());
 }

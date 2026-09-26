@@ -59,6 +59,8 @@ public partial class App : Application
             if (p.State == OverlappedPresenterState.Minimized && sender.IsVisible) HideToTray();
         };
         CreateTrayIcon();
+        // The installer replaces this app and the engine, then starts the app again.
+        ViewModel.Update.InstallerStarted += () => _ = QuitAsync();
         ViewModel.ApprovalRequested += device => _ = AskApprovalAsync(device);
         ViewModel.ApprovalResolved += id =>
         {

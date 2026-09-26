@@ -83,6 +83,12 @@ too. The firewall rule allows the engine on *Private* networks only.
 3. **Wi-Fi:** turn on *Wi-Fi connections* in the Connection page. PCs show up automatically in
    the app under *On this network* (mDNS), or type the address shown on the PC. The first time,
    the PC asks you to **allow** the device; allowed devices are remembered (and can be forgotten).
+   No app on the phone yet and no cable? Scan the **QR code** on the Connection page with the
+   phone's camera: it downloads the Android app straight from the PC (no internet needed).
+
+**Updates:** the app checks GitHub releases twice a day and offers *Update now*, which downloads
+the new installer, verifies its SHA-256 against the digest GitHub publishes, and installs it
+silently (one admin prompt). Devices plugged in over USB then get the matching Android app.
 
 On the device: swipe in from the right edge (or press Back) for the quick panel — display mode,
 finger input mode (Touch / Mouse / Trackpad), keyboard, performance overlay, disconnect.
@@ -134,7 +140,10 @@ engine and checks handshake, keyframes, bitstream format and keyframe-on-request
 ```
 powershell -ExecutionPolicy Bypass -File tools\package.ps1 -Version 0.1.0
 # -> dist\DisplayMaster-Setup-0.1.0.exe   (needs Inno Setup 7: winget install JrSoftware.InnoSetup)
+powershell -ExecutionPolicy Bypass -File tools\package.ps1 -Version 0.2.0 -Publish
+# also creates GitHub release v0.2.0 with the installer -> installed apps offer the update
 ```
+`-Version` sets the engine, the PC app and the Android app (`versionName`, `versionCode`) alike.
 
 ## Hardware notes
 * **Zephyrus G14 (780M iGPU + RTX 4070):** the engine creates its D3D device on the adapter that

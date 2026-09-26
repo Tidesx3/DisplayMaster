@@ -9,11 +9,14 @@
 #     driver\                                                    virtual display driver (signed, MIT)
 #     setup\setup-helpers.ps1                                    used by the installer
 #
-# Usage: powershell -ExecutionPolicy Bypass -File tools\package.ps1 [-Version 0.1.0] [-SkipAndroid]
+# Usage: powershell -ExecutionPolicy Bypass -File tools\package.ps1 [-Version 0.1.0] [-SkipAndroid] [-Publish]
+#   -Publish  also creates GitHub release v<Version> with the installer (needs `gh auth login`).
+#             Installed apps find it through their update check (Services\UpdateService.cs).
 param(
     [string] $Out = (Join-Path $PSScriptRoot '..\dist\DisplayMaster'),
     [string] $Version = '0.1.0',
-    [switch] $SkipAndroid
+    [switch] $SkipAndroid,
+    [switch] $Publish
 )
 $ErrorActionPreference = 'Stop'
 $root = Resolve-Path (Join-Path $PSScriptRoot '..')
@@ -69,7 +72,7 @@ New-Item -ItemType Directory -Force $Out | Out-Null
 
 Step 'Engine (C++, Release)'
 $cmake = Find-CMake
-& $cmake --preset windows-x64 | Out-Null
+& $cmake --preset windows-x64 "-DDM_VERSION=$Version" | Out-Null
 & $cmake --build --preset release --target DisplayMasterHost
 if ($LASTEXITCODE) { throw 'engine build failed' }
 Copy-Item "$root\build\windows-x64\windows\host\Release\DisplayMasterHost.exe" $Out
@@ -78,7 +81,7 @@ Step 'App (WinUI 3, self-contained)'
 $dotnet = Find-Dotnet
 $env:DOTNET_ROOT = Split-Path $dotnet
 & $dotnet publish "$root\windows\ui\DisplayMaster.App\DisplayMaster.App.csproj" -c Release -r win-x64 `
-    -p:Platform=x64 --self-contained -o $Out -nologo -v quiet
+    -p:Platform=x64 "-p:Version=$Version" --self-contained -o $Out -nologo -v quiet
 if ($LASTEXITCODE) { throw 'app publish failed' }
 # Without its PRI (compiled XAML) the app crashes at startup - never ship that.
 if (-not (Test-Path "$Out\DisplayMaster.pri")) { throw 'app publish is missing DisplayMaster.pri' }
@@ -88,7 +91,7 @@ if (-not $SkipAndroid) {
     if (-not $env:JAVA_HOME) { $env:JAVA_HOME = "$env:ProgramFiles\Android\Android Studio\jbr" }
     Push-Location "$root\android"
     try {
-        & .\gradlew.bat assembleRelease --console=plain -q
+        & .\gradlew.bat assembleRelease --console=plain -q "-PdmVersion=$Version"
         if ($LASTEXITCODE) { throw 'android build failed' }
     } finally { Pop-Location }
     New-Item -ItemType Directory -Force "$Out\android" | Out-Null
@@ -128,3 +131,11 @@ if ($iscc) {
 }
 $size = [math]::Round(((Get-ChildItem $Out -Recurse | Measure-Object Length -Sum).Sum / 1MB), 1)
 Write-Host "Unpacked files: $((Resolve-Path $Out).Path) ($size MB)" -ForegroundColor Green
+
+if ($Publish) {
+    Step "GitHub release v$Version"
+    if (-not $setup) { throw 'no installer to publish' }
+    # GitHub records a SHA-256 digest per asset; the app refuses updates without one.
+    & gh release create "v$Version" $setup.FullName --title "DisplayMaster $Version" --generate-notes
+    if ($LASTEXITCODE) { throw 'gh release create failed' }
+}

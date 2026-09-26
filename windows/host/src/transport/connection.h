@@ -27,6 +27,9 @@ public:
     // Blocking read of up to n bytes. Returns 0 on close/error.
     int recv(uint8_t* buf, int n);
     void close();
+    // Close after the peer has received everything sent (plain close() may reset the
+    // connection and drop the tail of a large send, e.g. an HTTP download).
+    void close_gracefully();
 
     const std::string& peer() const { return peer_; }
     bool loopback() const { return loopback_; }

@@ -72,6 +72,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<DeviceViewModel> Devices { get; } = new();
     public PenViewModel Pen { get; }
+    public UpdateViewModel Update { get; }
     public ObservableCollection<TrustedDevice> TrustedDevices { get; } = new();
     private readonly HashSet<int> _announcedApprovals = new();
 
@@ -90,6 +91,11 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] public partial string AddressesText { get; set; } = "";
     [ObservableProperty] public partial string UsbDevicesText { get; set; } = "";
     [ObservableProperty] public partial int Port { get; set; } = 47800;
+    /// <summary>Where a phone on the network downloads the Android app (QR code); empty if unavailable.</summary>
+    [ObservableProperty] public partial string ApkUrl { get; set; } = "";
+
+    public bool HasApkUrl => ApkUrl.Length > 0;
+    partial void OnApkUrlChanged(string value) => OnPropertyChanged(nameof(HasApkUrl));
 
     public bool HasDevices => Devices.Count > 0;
     public bool NoDevices => Devices.Count == 0;
@@ -112,6 +118,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
             OnPropertyChanged(nameof(DeviceCountText));
         };
         Pen = new PenViewModel(_host, dispatcher);
+        Update = new UpdateViewModel(dispatcher);
         _timer = dispatcher.CreateTimer();
         _timer.Interval = TimeSpan.FromSeconds(1);
         _timer.Tick += async (_, _) => await PollAsync();
@@ -140,6 +147,9 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 UsbPromptPending = h.AdbUnauthorized.Count > 0;
                 // The engine lists the best address first; one is all a device needs.
                 AddressesText = h.Addresses.Count > 0 ? h.Addresses[0] : "No network connection";
+                ApkUrl = h.Wifi && h.Addresses.Count > 0 && !string.IsNullOrEmpty(h.ApkPath)
+                    ? $"http://{h.Addresses[0]}:{h.Port}{h.ApkPath}"
+                    : "";
                 UsbDevicesText = h.AdbReady.Count > 0 ? string.Join(", ", h.AdbReady) : "None";
                 if (h.Pen is { } pen) Pen.Load(pen);
             }

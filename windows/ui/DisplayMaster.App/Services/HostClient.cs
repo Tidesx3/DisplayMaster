@@ -18,7 +18,8 @@ public sealed record TrustedDevice(string DeviceId, string Name);
 
 public sealed record HostInfo(
     string Name, int Port, bool Wifi, bool Elevated, bool Vdd, bool Adb,
-    List<string> Addresses, List<string> AdbReady, List<string> AdbUnauthorized, PenCurve? Pen);
+    List<string> Addresses, List<string> AdbReady, List<string> AdbUnauthorized, PenCurve? Pen,
+    string? ApkPath = null);
 
 public sealed record PenCurve(double Min, double Max, double Gamma);
 

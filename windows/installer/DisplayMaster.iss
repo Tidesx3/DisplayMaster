@@ -1,6 +1,7 @@
 ; DisplayMaster installer (Inno Setup 7). Built by tools\package.ps1 from dist\DisplayMaster.
 ;   ISCC /DAppVersion=0.1.0 /DSourceDir=..\..\dist\DisplayMaster DisplayMaster.iss
 ; Silent install on other machines:  DisplayMaster-Setup.exe /VERYSILENT [/TASKS="vdd,autostart,firewall"]
+; In-app updates run it with /SILENT /relaunch=1 (keeps the previous choices, starts the app again).
 
 #ifndef AppVersion
   #define AppVersion "0.1.0"
@@ -35,8 +36,6 @@ SolidCompression=yes
 CloseApplications=force
 RestartApplications=no
 LicenseFile=..\..\LICENSE
-; Upgrades start from the defaults below instead of the old choices (autostart is now opt-in).
-UsePreviousTasks=no
 
 [Tasks]
 Name: "vdd"; Description: "Install the virtual display driver (needed to extend the desktop)"; GroupDescription: "Components:"
@@ -65,6 +64,7 @@ Filename: "{app}\DisplayMasterHost.exe"; Parameters: "--install-vdd ""{app}\driv
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\setup\setup-helpers.ps1"" -Action Install -AppDir ""{app}"" {code:FirewallSwitch}"; \
   StatusMsg: "Registering the DisplayMaster engine..."; Flags: runhidden waituntilterminated
 Filename: "{app}\DisplayMaster.exe"; Description: "Open DisplayMaster"; Flags: postinstall nowait skipifsilent runasoriginaluser
+Filename: "{app}\DisplayMaster.exe"; Flags: nowait runasoriginaluser; Check: RelaunchRequested
 
 [UninstallRun]
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\setup\setup-helpers.ps1"" -Action Uninstall -AppDir ""{app}"""; \
@@ -74,6 +74,11 @@ Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -Fil
 Type: filesandordirs; Name: "{app}"
 
 [Code]
+function RelaunchRequested: Boolean;
+begin
+  Result := ExpandConstant('{param:relaunch|0}') = '1';
+end;
+
 function FirewallSwitch(Param: String): String;
 begin
   if WizardIsTaskSelected('firewall') then Result := '-Firewall' else Result := '';

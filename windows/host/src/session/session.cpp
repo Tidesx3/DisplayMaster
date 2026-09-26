@@ -2,10 +2,12 @@
 
 #include <algorithm>
 #include <tuple>
+#include <utility>
 
 #include "core/log.h"
 #include "core/win.h"
 #include "session/video_pipeline.h"
+#include "transport/apk_server.h"
 
 namespace dm {
 
@@ -51,9 +53,17 @@ void Session::receive_loop() {
     proto::RawMessage msg;
     std::vector<uint8_t> buf(64 * 1024);
     bool greeted = false;
+    bool first = true;
     while (running_) {
         const int n = conn_->recv(buf.data(), static_cast<int>(buf.size()));
         if (n <= 0) break;
+        // A phone's browser fetching the Android app (QR code in the PC app), not a device.
+        if (std::exchange(first, false) && looks_like_http(buf.data(), static_cast<size_t>(n))) {
+            serve_http(*conn_, buf.data(), static_cast<size_t>(n));
+            running_ = false;
+            finished_ = true;
+            return;
+        }
         parser.feed(buf.data(), static_cast<size_t>(n));
         while (parser.next(msg)) {
             if (!greeted) {

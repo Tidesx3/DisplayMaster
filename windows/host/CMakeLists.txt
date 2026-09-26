@@ -14,6 +14,7 @@ add_library(dm_host_core STATIC
   src/encode/amf_encoder.cpp
   src/transport/connection.cpp
   src/transport/adb.cpp
+  src/transport/apk_server.cpp
   src/transport/mdns.cpp
   src/input/input_injector.cpp
   src/session/video_pipeline.cpp
@@ -29,6 +30,9 @@ target_include_directories(dm_host_core
 target_link_libraries(dm_host_core PUBLIC dm_protocol d3d11 dxgi d3dcompiler ws2_32 iphlpapi advapi32 dnsapi shell32 ole32 setupapi newdev user32)
 # Synthetic pointer API needs the Windows 10 1809 headers.
 target_compile_definitions(dm_host_core PUBLIC _WIN32_WINNT=0x0A00 NTDDI_VERSION=0x0A000006)
+# Release version (tools\package.ps1 -Version passes it in; the app compares it for updates).
+set(DM_VERSION "${PROJECT_VERSION}" CACHE STRING "DisplayMaster release version")
+target_compile_definitions(dm_host_core PUBLIC DM_VERSION="${DM_VERSION}")
 
 # GUI subsystem: started by the app or its task, the engine runs without a console window.
 # main.cpp attaches to the parent console when run from a terminal (diagnostics, -v).
