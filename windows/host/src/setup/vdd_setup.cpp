@@ -118,9 +118,15 @@ VddState vdd_state() {
     for_each_vdd_device(
         [&](HDEVINFO, SP_DEVINFO_DATA& info) {
             ULONG status = 0, problem = 0;
-            const bool disabled = CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0) == CR_SUCCESS &&
-                                  (status & DN_HAS_PROBLEM) && problem == CM_PROB_DISABLED;
-            if (state != VddState::Enabled) state = disabled ? VddState::Disabled : VddState::Enabled;
+            const bool has_problem = CM_Get_DevNode_Status(&status, &problem, info.DevInst, 0) == CR_SUCCESS &&
+                                     (status & DN_HAS_PROBLEM);
+            const auto device = !has_problem                ? VddState::Enabled
+                                : problem == CM_PROB_DISABLED ? VddState::Disabled
+                                                              : VddState::Failed;
+            // One working device is enough; otherwise report the most "on" state.
+            if (state == VddState::NotInstalled || device == VddState::Enabled ||
+                (device == VddState::Failed && state == VddState::Disabled))
+                state = device;
         },
         true);
     return state;
@@ -142,6 +148,27 @@ bool set_vdd_enabled(bool on) {
                 DM_LOGW("VDD: %s the device failed (%lu)", on ? "enabling" : "disabling", GetLastError());
         },
         true);
+    return ok;
+}
+
+bool restart_vdd() {
+    bool ok = false;
+    for_each_vdd_device(
+        [&](HDEVINFO set, SP_DEVINFO_DATA& info) {
+            SP_PROPCHANGE_PARAMS params{};
+            params.ClassInstallHeader.cbSize = sizeof(SP_CLASSINSTALL_HEADER);
+            params.ClassInstallHeader.InstallFunction = DIF_PROPERTYCHANGE;
+            params.StateChange = DICS_PROPCHANGE;  // stop + start
+            params.Scope = DICS_FLAG_CONFIGSPECIFIC;
+            if (SetupDiSetClassInstallParamsW(set, &info, &params.ClassInstallHeader, sizeof params) &&
+                SetupDiCallClassInstaller(DIF_PROPERTYCHANGE, set, &info))
+                ok = true;
+            else
+                DM_LOGW("VDD: restarting the device failed (%lu)", GetLastError());
+        },
+        true);
+    // A device that stays failed after a restart usually recovers from off/on.
+    if (ok && vdd_state() == VddState::Failed) ok = set_vdd_enabled(false) && set_vdd_enabled(true);
     return ok;
 }
 

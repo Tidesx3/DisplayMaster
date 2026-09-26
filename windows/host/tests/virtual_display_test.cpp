@@ -52,6 +52,35 @@ TEST(MttVddXml, AddsOnlyMissingResolutions) {
     EXPECT_LT(out.find("<width>2800</width>"), out.find("</resolutions>"));
 }
 
+TEST(MttVddXml, SetResolutionsDropsOldModesKeepsStock) {
+    bool changed = false;
+    // Grow the list the way 0.5.0 did, then trim it to what's needed now.
+    auto grown = MttVddProvider::add_resolutions(kXml, {{800, 600, 30}, {1600, 1000, 60}, {1000, 1600, 60}}, &changed);
+    grown = MttVddProvider::add_resolutions(grown, {{2560, 1600, 120}, {1600, 2560, 120}}, &changed);
+    EXPECT_EQ(MttVddProvider::count_resolutions(grown), 6u);
+
+    const auto out = MttVddProvider::set_resolutions(grown, {{2560, 1600, 120}, {1600, 2560, 120}}, &changed);
+    EXPECT_TRUE(changed);
+    EXPECT_EQ(MttVddProvider::count_resolutions(out), 3u);  // 800x600 stock + the two wanted
+    EXPECT_NE(out.find("<width>800</width>"), std::string::npos);
+    EXPECT_NE(out.find("<width>2560</width>"), std::string::npos);
+    EXPECT_EQ(out.find("<width>1600</width>\n            <height>1000"), std::string::npos);
+    EXPECT_EQ(out.find("1920"), std::string::npos);  // 1920x1080@60 isn't stock (stock is @30)
+    EXPECT_LT(out.find("<width>2560</width>"), out.find("</resolutions>"));
+    EXPECT_EQ(MttVddProvider::parse_count(out), 1u);
+
+    // Nothing to do the second time.
+    bool again = true;
+    EXPECT_EQ(MttVddProvider::set_resolutions(out, {{1600, 2560, 120}, {2560, 1600, 120}}, &again), out);
+    EXPECT_FALSE(again);
+
+    // New mode: added, the old ones dropped.
+    const auto next = MttVddProvider::set_resolutions(out, {{1080, 2400, 60}}, &changed);
+    EXPECT_TRUE(changed);
+    EXPECT_EQ(MttVddProvider::count_resolutions(next), 2u);
+    EXPECT_NE(next.find("<width>1080</width>"), std::string::npos);
+}
+
 TEST(MttVddXml, UnknownFormatIsLeftAlone) {
     bool changed = true;
     const std::string weird = "<vdd_settings></vdd_settings>";

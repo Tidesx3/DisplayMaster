@@ -12,10 +12,13 @@ int install_vdd(const std::filesystem::path& package_dir);
 int uninstall_vdd();
 
 // Device state. Disabled = no virtual monitors at all (none listed in display settings).
-enum class VddState { NotInstalled, Disabled, Enabled };
+// Failed = switched on, but Windows stopped the driver after it reported a problem (code 43).
+enum class VddState { NotInstalled, Disabled, Enabled, Failed };
 VddState vdd_state();
 // Requires elevation.
 bool set_vdd_enabled(bool on);
+// Stops and starts the device (clears a failed state). Requires elevation.
+bool restart_vdd();
 // True if the DisplayMaster installer added the driver (it may be switched off when
 // idle); a driver another tool installed is left running.
 bool vdd_installed_by_us();

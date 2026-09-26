@@ -85,6 +85,7 @@ private:
     std::thread udp_thread_;
     std::atomic<bool> udp_on_{false};
     std::atomic<uint32_t> udp_lost_{0}, udp_recovered_{0};  // since the last stats message
+    std::atomic<uint64_t> video_config_us_{0};  // when the latest VideoConfig arrived
 
     ClientListener* listener_;
     std::thread thread_;

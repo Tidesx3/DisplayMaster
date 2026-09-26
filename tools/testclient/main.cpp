@@ -212,7 +212,9 @@ Result run_client(const Options& o, int index) {
 
     std::unique_ptr<udp::Cipher> udp_cipher;
     udp::FrameAssembler assembler;
-    auto udp_since = Clock::now();  // last valid datagram (or the switch to UDP)
+    auto udp_since = Clock::now();    // the switch to UDP
+    auto config_at = Clock::now();    // the latest VideoConfig
+    bool udp_got = false;             // any valid datagram since the switch
     std::mt19937 rng(1234 + index);
     std::vector<uint8_t> dgram(2048), plain;
 
@@ -233,7 +235,7 @@ Result run_client(const Options& o, int index) {
                 }
                 uint64_t seq = 0;
                 if (!udp_cipher->open(std::span<const uint8_t>(dgram.data(), static_cast<size_t>(n)), plain, seq)) continue;
-                udp_since = Clock::now();
+                udp_got = true;
                 assembler.add(plain, mono_us());
             }
         }
@@ -268,8 +270,9 @@ Result run_client(const Options& o, int index) {
                 st.udp_recovered_shards = std::exchange(stats_recovered, 0);
                 send_msg(proto::encode(st));
             }
-            // Nothing gets through: tell the host to keep video on TCP.
-            if (Clock::now() - udp_since > std::chrono::seconds(2)) {
+            // Nothing gets through: tell the host to keep video on TCP. Like the app, only
+            // silence from the start counts (a still desktop sends no frames).
+            if (!udp_got && configured && Clock::now() - std::max(udp_since, config_at) > std::chrono::seconds(3)) {
                 send_msg(proto::encode(proto::UdpFallback{}));
                 udp_cipher.reset();
                 r.fell_back = true;
@@ -323,6 +326,7 @@ Result run_client(const Options& o, int index) {
                     if (auto c = proto::decode<proto::VideoConfig>(msg.payload)) {
                         r.config = *c;
                         configured = true;
+                        config_at = Clock::now();
                     }
                     break;
                 case proto::MsgType::VideoFrame:
@@ -333,6 +337,7 @@ Result run_client(const Options& o, int index) {
                         if (t->udp && us != INVALID_SOCKET) {
                             udp_cipher = std::make_unique<udp::Cipher>(t->key);
                             udp_since = Clock::now();
+                            udp_got = false;
                             r.udp_video = true;
                         } else {
                             udp_cipher.reset();

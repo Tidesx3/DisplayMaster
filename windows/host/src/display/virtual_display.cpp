@@ -98,6 +98,47 @@ std::string MttVddProvider::add_resolutions(const std::string& xml, const std::v
     return out;
 }
 
+static const std::regex& resolution_re() {
+    static const std::regex re(
+        R"(\s*<resolution>\s*<width>\s*(\d+)\s*</width>\s*<height>\s*(\d+)\s*</height>\s*)"
+        R"(<refresh_rate>\s*(\d+)\s*</refresh_rate>\s*</resolution>)");
+    return re;
+}
+
+size_t MttVddProvider::count_resolutions(const std::string& xml) {
+    return static_cast<size_t>(std::distance(std::sregex_iterator(xml.begin(), xml.end(), resolution_re()),
+                                             std::sregex_iterator()));
+}
+
+std::string MttVddProvider::set_resolutions(const std::string& xml, const std::vector<DisplayModeSpec>& modes,
+                                            bool* changed) {
+    *changed = false;
+    if (xml.find("</resolutions>") == std::string::npos) return xml;  // unexpected format: leave untouched
+    // What the driver's own settings file ships with.
+    static const DisplayModeSpec kStock[] = {
+        {800, 600, 30}, {1366, 768, 30}, {1920, 1080, 30}, {2560, 1440, 30}, {3840, 2160, 30}};
+    std::string kept;
+    size_t last = 0;
+    for (auto it = std::sregex_iterator(xml.begin(), xml.end(), resolution_re()); it != std::sregex_iterator(); ++it) {
+        const DisplayModeSpec m{static_cast<uint32_t>(std::stoul((*it)[1].str())),
+                                static_cast<uint32_t>(std::stoul((*it)[2].str())),
+                                static_cast<uint32_t>(std::stoul((*it)[3].str()))};
+        const bool keep = std::find(std::begin(kStock), std::end(kStock), m) != std::end(kStock) ||
+                          std::find(modes.begin(), modes.end(), m) != modes.end();
+        kept += xml.substr(last, static_cast<size_t>(it->position()) - last);
+        if (keep)
+            kept += it->str();
+        else
+            *changed = true;
+        last = static_cast<size_t>(it->position() + it->length());
+    }
+    kept += xml.substr(last);
+    bool added = false;
+    std::string out = add_resolutions(kept, modes, &added);
+    *changed = *changed || added;
+    return *changed ? out : xml;
+}
+
 uint32_t MttVddProvider::monitor_count() {
     std::string xml;
     return read_file(settings_path_, xml) ? parse_count(xml) : 0;
@@ -110,7 +151,12 @@ bool MttVddProvider::configure(uint32_t monitor_count, const std::vector<Display
         return false;
     }
     bool modes_changed = false;
-    std::string updated = add_resolutions(xml, modes, &modes_changed);
+    // A driver we installed is ours to tidy up; another tool's list only ever grows.
+    std::string updated = setup::vdd_installed_by_us() ? set_resolutions(xml, modes, &modes_changed)
+                                                       : add_resolutions(xml, modes, &modes_changed);
+    if (modes_changed && count_resolutions(updated) > kMaxResolutions)
+        DM_LOGW("VDD: %zu resolutions in %s - the driver may fail to start with that many",
+                count_resolutions(updated), to_utf8(settings_path_).c_str());
     const bool count_changed = parse_count(updated) != monitor_count;
     if (!modes_changed && !count_changed) return true;
     if (!enabled()) {
@@ -135,7 +181,22 @@ bool MttVddProvider::set_render_gpu(const std::wstring& adapter_name) {
 
 bool MttVddProvider::installed() { return setup::vdd_state() != setup::VddState::NotInstalled; }
 
-bool MttVddProvider::enabled() { return setup::vdd_state() == setup::VddState::Enabled; }
+bool MttVddProvider::enabled() {
+    const auto state = setup::vdd_state();
+    return state == setup::VddState::Enabled || state == setup::VddState::Failed;
+}
+
+bool MttVddProvider::failed() { return setup::vdd_state() == setup::VddState::Failed; }
+
+bool MttVddProvider::restart() {
+    if (!setup::restart_vdd()) return false;
+    for (int i = 0; i < 40; ++i) {
+        if (available()) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
+    DM_LOGE("VDD: driver did not start");
+    return false;
+}
 
 bool MttVddProvider::set_enabled(bool on) {
     // Only a driver we installed is ours to switch off; another tool may rely on it.
@@ -156,7 +217,8 @@ bool MttVddProvider::set_enabled(bool on) {
 VirtualDisplayManager::VirtualDisplayManager(std::unique_ptr<IVirtualDisplayProvider> provider)
     : provider_(std::move(provider)) {
     // A driver we switched off earlier counts: acquire() turns it back on.
-    available_ = provider_ && (provider_->available() || (provider_->installed() && !provider_->enabled()));
+    available_ = provider_ && (provider_->available() || (provider_->installed() && !provider_->enabled()) ||
+                               provider_->failed());
     if (available_)
         DM_LOGI("Virtual display driver: %s (%s)", provider_->name(), provider_->enabled() ? "on" : "off");
     else
@@ -195,11 +257,16 @@ void VirtualDisplayManager::idle_locked() {
     if (!slots_.empty() || !provider_->enabled()) return;
     if (provider_->set_enabled(false)) {
         DM_LOGI("VDD: switched off until a device extends the desktop");
-        provider_->configure(1, known_modes_);  // start with one monitor next time
+        provider_->configure(1, modes_locked());  // start with one monitor next time
         return;
     }
+    if (provider_->failed()) {
+        DM_LOGW("VDD: Windows stopped the driver after an error - restarting it");
+        provider_->configure(1, modes_locked());
+        provider_->restart();
+    }
     if (provider_->monitor_count() > 1) {
-        provider_->configure(1, known_modes_);
+        provider_->configure(1, modes_locked());
         wait_for_slot(0, false, 8000);
     }
     detach_unused_locked(SIZE_MAX);
@@ -242,6 +309,51 @@ std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const 
     return std::nullopt;
 }
 
+// Most recently used first, the portrait variant too (rotating then needs no driver reload).
+void VirtualDisplayManager::remember_mode_locked(const DisplayModeSpec& mode) {
+    const DisplayModeSpec pair[] = {{mode.height, mode.width, mode.refresh_hz}, mode};
+    for (const auto& m : pair) {
+        std::erase(known_modes_, m);
+        known_modes_.insert(known_modes_.begin(), m);
+    }
+}
+
+// Modes to offer: the driver fails with too many (see kMaxResolutions), so only the monitors
+// in use plus the most recent others.
+std::vector<DisplayModeSpec> VirtualDisplayManager::modes_locked() const {
+    constexpr size_t kMaxModes = 6;  // plus the driver's 5 stock resolutions
+    std::vector<DisplayModeSpec> modes;
+    auto add = [&](const DisplayModeSpec& m) {
+        if (std::find(modes.begin(), modes.end(), m) == modes.end()) modes.push_back(m);
+    };
+    for (const auto& [slot, s] : slots_) {
+        add(s.mode);
+        add({s.mode.height, s.mode.width, s.mode.refresh_hz});
+    }
+    for (const auto& m : known_modes_)
+        if (modes.size() < kMaxModes) add(m);
+    return modes;
+}
+
+std::optional<MonitorInfo> VirtualDisplayManager::start_slot_locked(size_t slot, const DisplayModeSpec& mode,
+                                                                    Placement placement) {
+    const uint32_t needed = static_cast<uint32_t>(std::max<size_t>(slot + 1, provider_->monitor_count()));
+    if (provider_->failed()) {
+        DM_LOGW("VDD: Windows stopped the driver after an error - restarting it");
+        provider_->configure(needed, modes_locked());
+        if (!provider_->restart()) return std::nullopt;
+    }
+    if (!provider_->enabled()) {
+        // Count and modes go into the settings file first, so starting needs no reload.
+        if (!provider_->configure(static_cast<uint32_t>(slot + 1), modes_locked())) return std::nullopt;
+        DM_LOGI("VDD: switching on");
+        if (!provider_->set_enabled(true)) return std::nullopt;
+    } else if (!provider_->configure(needed, modes_locked())) {
+        return std::nullopt;
+    }
+    return apply_mode(slot, mode, placement);
+}
+
 std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, const DisplayModeSpec& mode,
                                                          Placement placement) {
     if (!available_) return std::nullopt;
@@ -249,22 +361,14 @@ std::optional<MonitorInfo> VirtualDisplayManager::acquire(uint32_t session_id, c
 
     size_t slot = 0;
     while (slots_.count(slot)) ++slot;
+    remember_mode_locked(mode);
 
-    // Portrait variant too, so rotating the device doesn't need a driver reload.
-    for (const auto& m : {mode, DisplayModeSpec{mode.height, mode.width, mode.refresh_hz}})
-        if (std::find(known_modes_.begin(), known_modes_.end(), m) == known_modes_.end()) known_modes_.push_back(m);
-
-    const uint32_t needed = static_cast<uint32_t>(std::max<size_t>(slot + 1, provider_->monitor_count()));
-    if (!provider_->enabled()) {
-        // Count and modes go into the settings file first, so starting needs no reload.
-        if (!provider_->configure(static_cast<uint32_t>(slot + 1), known_modes_)) return std::nullopt;
-        DM_LOGI("VDD: switching on");
-        if (!provider_->set_enabled(true)) return std::nullopt;
-    } else if (!provider_->configure(needed, known_modes_)) {
-        return std::nullopt;
+    auto mon = start_slot_locked(slot, mode, placement);
+    if (!mon && provider_->enabled()) {
+        // The driver can get stuck (e.g. after failing on too many modes): restart it once.
+        DM_LOGW("VDD: restarting the driver and trying again");
+        if (provider_->restart()) mon = start_slot_locked(slot, mode, placement);
     }
-
-    auto mon = apply_mode(slot, mode, placement);
     if (!mon) return std::nullopt;
     slots_[slot] = Slot{session_id, mode, placement};
     // A driver reload re-attaches every virtual monitor; hide the ones nobody uses.
@@ -289,12 +393,11 @@ std::optional<MonitorInfo> VirtualDisplayManager::reconfigure(uint32_t session_i
                 mons[slot].rect.h == static_cast<int32_t>(mode.height))
                 return mons[slot];
         }
-        if (std::find(known_modes_.begin(), known_modes_.end(), mode) == known_modes_.end()) {
-            known_modes_.push_back(mode);
-            if (!provider_->configure(provider_->monitor_count(), known_modes_)) return std::nullopt;
-        }
         s.mode = mode;
         s.placement = placement;
+        remember_mode_locked(mode);
+        // Rewrites the settings (and reloads the driver) only if the mode list changed.
+        if (!provider_->configure(provider_->monitor_count(), modes_locked())) return std::nullopt;
         return apply_mode(slot, mode, placement);
     }
     return std::nullopt;
@@ -322,6 +425,8 @@ void VirtualDisplayManager::release(uint32_t session_id) {
         idle_locked();
         return;
     }
+    // The session never got a monitor (the driver failed): still leave the driver idle.
+    idle_locked();
 }
 
 }  // namespace dm

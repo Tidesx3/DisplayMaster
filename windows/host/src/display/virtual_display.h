@@ -40,6 +40,9 @@ public:
     virtual bool installed() { return available(); }
     virtual bool enabled() { return true; }
     virtual bool set_enabled(bool) { return false; }
+    // Driver crashed (Windows stopped the device) / restart it. Restarting needs elevation.
+    virtual bool failed() { return false; }
+    virtual bool restart() { return false; }
 };
 
 // Signed open-source driver: https://github.com/VirtualDrivers/Virtual-Display-Driver
@@ -55,10 +58,21 @@ public:
     bool installed() override;
     bool enabled() override;
     bool set_enabled(bool on) override;
+    bool failed() override;
+    bool restart() override;
+
+    // The driver lists every <resolution> at its own and at each global refresh rate; with
+    // around 15 entries (100+ modes) it stops creating monitors. Keep the list short.
+    static constexpr size_t kMaxResolutions = 12;
 
     // Exposed for tests: add missing <resolution> entries to settings XML text.
     static std::string add_resolutions(const std::string& xml, const std::vector<DisplayModeSpec>& modes,
                                        bool* changed);
+    // Like add_resolutions, but also drops entries that are neither in `modes` nor one of the
+    // driver's stock ones (used when the driver is ours: older versions only ever added).
+    static std::string set_resolutions(const std::string& xml, const std::vector<DisplayModeSpec>& modes,
+                                       bool* changed);
+    static size_t count_resolutions(const std::string& xml);
     static uint32_t parse_count(const std::string& xml);
     static std::string set_count(const std::string& xml, uint32_t count);
 
@@ -102,9 +116,13 @@ private:
 
     std::unique_ptr<IVirtualDisplayProvider> provider_;
     bool available_ = false;
+    std::optional<MonitorInfo> start_slot_locked(size_t slot, const DisplayModeSpec& mode, Placement placement);
+    void remember_mode_locked(const DisplayModeSpec& mode);
+    std::vector<DisplayModeSpec> modes_locked() const;
+
     std::mutex mu_;
     std::map<size_t, Slot> slots_;  // slot index -> owner
-    std::vector<DisplayModeSpec> known_modes_;
+    std::vector<DisplayModeSpec> known_modes_;  // most recently used first
 };
 
 }  // namespace dm

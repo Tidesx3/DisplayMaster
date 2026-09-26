@@ -312,6 +312,7 @@ void Client::handle(const proto::RawMessage& m) {
             break;
         case proto::MsgType::VideoConfig:
             if (auto c = proto::decode<proto::VideoConfig>(m.payload)) {
+                video_config_us_ = mono_us();
                 {
                     std::lock_guard lock(dec_mu_);
                     config_ = *c;
@@ -393,13 +394,14 @@ void Client::udp_loop(udp::Key key) {
     const udp::Cipher cipher(key);
     udp::FrameAssembler assembler;
     std::vector<uint8_t> datagram(2048), plain;
-    uint64_t last_packet_us = mono_us();
+    const uint64_t started_us = mono_us();
+    bool got_packet = false;
     while (running_ && udp_on_) {
         const ssize_t n = recv(udp_fd_, datagram.data(), datagram.size(), 0);
         const uint64_t now = mono_us();
         uint64_t seq = 0;
         if (n > 0 && cipher.open(std::span<const uint8_t>(datagram.data(), static_cast<size_t>(n)), plain, seq)) {
-            last_packet_us = now;
+            got_packet = true;
             bytes_ += static_cast<uint64_t>(n);
             assembler.add(plain, now);
         }
@@ -416,7 +418,10 @@ void Client::udp_loop(udp::Key key) {
             send(proto::InvalidateFrames{lost_first, lost_last});
         }
         udp_recovered_ += assembler.take_recovered();
-        if (now - last_packet_us > 2000000) {
+        // A still desktop sends no frames, so only silence from the start counts: the PC
+        // announced video (it may take seconds to set up the monitor first) and none arrived.
+        const uint64_t video_us = video_config_us_;
+        if (!got_packet && video_us && now - std::max(started_us, video_us) > 3000000) {
             // Nothing gets through (router, firewall): ask for video on the control connection.
             LOGI("no UDP video arriving - falling back to TCP");
             send(proto::UdpFallback{});
