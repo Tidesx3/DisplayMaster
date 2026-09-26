@@ -116,6 +116,7 @@ fun StreamScreen(
         )
 
         if (settings.showStats) StatsPill(state, Modifier.align(Alignment.TopStart).padding(12.dp))
+        if (settings.showShortcuts) ShortcutBar(client, Modifier.align(Alignment.CenterStart))
 
         EdgeHandle(visible = !panelOpen, onOpen = { panelOpen = true }, modifier = Modifier.align(Alignment.CenterEnd))
 
@@ -231,6 +232,10 @@ private fun QuickPanel(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Performance overlay", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = settings.showStats, onCheckedChange = { v -> onSettings { it.copy(showStats = v) } })
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Shortcut bar", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                Switch(checked = settings.showShortcuts, onCheckedChange = { v -> onSettings { it.copy(showShortcuts = v) } })
             }
             FilledTonalButton(onClick = onKeyboard, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.Keyboard, null)

@@ -12,6 +12,8 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <map>
+#include <set>
 #include <mutex>
 #include <thread>
 
@@ -49,6 +51,7 @@ private:
     std::optional<PointI> map(float x, float y, bool clamp) const;
     void inject_touch_frame(int changed, uint32_t changed_flags);
     void keepalive_loop();
+    static void send_scancode(uint16_t scancode, bool extended, bool down);
 
     HSYNTHETICPOINTERDEVICE pen_dev_ = nullptr;
     HSYNTHETICPOINTERDEVICE touch_dev_ = nullptr;
@@ -62,6 +65,9 @@ private:
     POINT pen_pt_{};
 
     std::array<Contact, kMaxContacts> contacts_{};
+    std::map<uint32_t, uint8_t> added_mods_;  // shortcut key -> modifiers pressed for it
+    std::set<UINT> held_vks_;                 // virtual keys currently down (released at session end)
+    std::set<uint32_t> held_scancodes_;       // scancode | extended << 16, likewise
     uint64_t last_touch_inject_us_ = 0;
     std::thread keepalive_;
     std::atomic<bool> running_{true};

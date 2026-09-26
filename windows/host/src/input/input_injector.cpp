@@ -253,15 +253,70 @@ void InputInjector::mouse(const proto::Mouse& m) {
     SendInput(1, &in, sizeof in);
 }
 
+void InputInjector::send_scancode(uint16_t scancode, bool extended, bool down) {
+    INPUT in{};
+    in.type = INPUT_KEYBOARD;
+    in.ki.wScan = scancode;
+    in.ki.dwFlags = KEYEVENTF_SCANCODE | (down ? 0 : KEYEVENTF_KEYUP) | (extended ? KEYEVENTF_EXTENDEDKEY : 0);
+    SendInput(1, &in, sizeof in);
+}
+
 void InputInjector::key(const proto::Key& k) {
     const bool down = k.flags & proto::kKeyDown;
+    if (k.flags & proto::kKeyVirtual) {
+        // The layout of the window that gets the key decides which key types a character.
+        const HKL layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), nullptr));
+        UINT vk = k.scancode;
+        uint8_t needs = 0;  // VkKeyScan shift state: 1 Shift, 2 Ctrl, 4 Alt (Ctrl+Alt = AltGr)
+        if (!vk && k.unicode && k.unicode <= 0xFFFF) {
+            const SHORT r = VkKeyScanExW(static_cast<wchar_t>(k.unicode), layout);
+            if (r == -1) return;  // no key types it in this layout
+            vk = LOBYTE(r);
+            needs = HIBYTE(r) & 7;
+        }
+        if (!vk) return;
+        auto send_key = [&](UINT key, bool press) {
+            INPUT in{};
+            in.type = INPUT_KEYBOARD;
+            in.ki.wVk = static_cast<WORD>(key);
+            in.ki.wScan = static_cast<WORD>(MapVirtualKeyExW(key, MAPVK_VK_TO_VSC, layout));
+            in.ki.dwFlags = press ? 0 : KEYEVENTF_KEYUP;
+            SendInput(1, &in, sizeof in);
+            if (press) held_vks_.insert(key);
+            else held_vks_.erase(key);
+        };
+        // A character that needs Shift / AltGr in this layout ("[" on QWERTZ): hold those
+        // for this key, leaving modifiers the user already holds alone.
+        static constexpr std::pair<uint8_t, UINT> kMods[] = {
+            {uint8_t{1}, UINT{VK_SHIFT}}, {uint8_t{2}, UINT{VK_CONTROL}}, {uint8_t{4}, UINT{VK_MENU}}};
+        std::lock_guard lock(mu_);
+        if (down) {
+            uint8_t added = 0;
+            for (const auto& [bit, mod] : kMods)
+                if ((needs & bit) && !(GetAsyncKeyState(static_cast<int>(mod)) & 0x8000)) {
+                    send_key(mod, true);
+                    added |= bit;
+                }
+            added_mods_[k.unicode ? k.unicode : vk] = added;
+            send_key(vk, true);
+        } else {
+            send_key(vk, false);
+            const auto it = added_mods_.find(k.unicode ? k.unicode : vk);
+            if (it != added_mods_.end()) {
+                for (const auto& [bit, mod] : kMods)
+                    if (it->second & bit) send_key(mod, false);
+                added_mods_.erase(it);
+            }
+        }
+        return;
+    }
     if (k.scancode) {
-        INPUT in{};
-        in.type = INPUT_KEYBOARD;
-        in.ki.wScan = k.scancode;
-        in.ki.dwFlags = KEYEVENTF_SCANCODE | (down ? 0 : KEYEVENTF_KEYUP) |
-                        ((k.flags & proto::kKeyExtended) ? KEYEVENTF_EXTENDEDKEY : 0);
-        SendInput(1, &in, sizeof in);
+        const bool extended = k.flags & proto::kKeyExtended;
+        send_scancode(k.scancode, extended, down);
+        std::lock_guard lock(mu_);
+        const uint32_t id = k.scancode | (extended ? 0x10000u : 0u);
+        if (down) held_scancodes_.insert(id);
+        else held_scancodes_.erase(id);
         return;
     }
     if (!k.unicode || !down) return;
@@ -288,6 +343,19 @@ void InputInjector::key(const proto::Key& k) {
 
 void InputInjector::release_all() {
     std::lock_guard lock(mu_);
+    // Keys the device still holds (a latched Ctrl / Space from the shortcut bar, a hardware
+    // key held while disconnecting) must not stay stuck down on the PC.
+    for (const UINT vk : held_vks_) {
+        INPUT in{};
+        in.type = INPUT_KEYBOARD;
+        in.ki.wVk = static_cast<WORD>(vk);
+        in.ki.dwFlags = KEYEVENTF_KEYUP;
+        SendInput(1, &in, sizeof in);
+    }
+    held_vks_.clear();
+    added_mods_.clear();
+    for (const uint32_t id : held_scancodes_) send_scancode(static_cast<uint16_t>(id & 0xFFFF), id >> 16, false);
+    held_scancodes_.clear();
     if (pen_dev_ && (pen_in_range_ || pen_contact_)) {
         POINTER_TYPE_INFO info{};
         info.type = PT_PEN;

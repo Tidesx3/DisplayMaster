@@ -28,6 +28,7 @@ data class Settings(
     val touchMode: TouchMode = TouchMode.Touch,
     val maxFps: Int = 120,
     val showStats: Boolean = false,
+    val showShortcuts: Boolean = true,  // drawing-app shortcut bar on the stream's left edge
     val preferredCodec: Int = Proto.CODEC_HEVC,
 )
 
@@ -85,6 +86,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
             .putString("touchMode", s.touchMode.name)
             .putInt("maxFps", s.maxFps)
             .putBoolean("showStats", s.showStats)
+            .putBoolean("showShortcuts", s.showShortcuts)
             .putInt("codec", s.preferredCodec)
             .apply()
         if (_state.value.phase == Phase.Streaming) pushSettings()
@@ -136,6 +138,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
         touchMode = runCatching { TouchMode.valueOf(prefs.getString("touchMode", null)!!) }.getOrDefault(TouchMode.Touch),
         maxFps = prefs.getInt("maxFps", 120),
         showStats = prefs.getBoolean("showStats", false),
+        showShortcuts = prefs.getBoolean("showShortcuts", true),
         preferredCodec = prefs.getInt("codec", Proto.CODEC_HEVC),
     )
 

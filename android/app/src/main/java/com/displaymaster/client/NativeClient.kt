@@ -120,6 +120,9 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     fun sendKey(evdevScan: Int, set1: Int, extended: Boolean, down: Boolean, unicode: Int) =
         nativeSendKey(handle, evdevScan, set1, extended, down, unicode)
 
+    /** Shortcut key: Windows virtual-key [vk], or (vk 0) the key typing [char] in the PC's layout. */
+    fun sendShortcutKey(vk: Int, char: Int, down: Boolean) = nativeSendVirtualKey(handle, vk, char, down)
+
     fun sendGeometry(g: DeviceInfo.Geometry) =
         nativeSendGeometry(handle, g.width, g.height, g.dpi, g.refreshMhz, g.rotation, g.posture)
 
@@ -175,6 +178,7 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     )
     private external fun nativeSendMouse(handle: Long, kind: Int, x: Float, y: Float, button: Int, down: Boolean)
     private external fun nativeSendKey(handle: Long, evdev: Int, set1: Int, extended: Boolean, down: Boolean, unicode: Int)
+    private external fun nativeSendVirtualKey(handle: Long, vk: Int, unicode: Int, down: Boolean)
     private external fun nativeSendGeometry(
         handle: Long, width: Int, height: Int, dpi: Int, refreshMhz: Int, rotation: Int, posture: Int,
     )

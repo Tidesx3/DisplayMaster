@@ -244,6 +244,17 @@ JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeSendKey(
     client_of(h)->send(k);
 }
 
+// Shortcut bar: a Windows virtual-key code, or (vk 0) the key that types `unicode` on the PC.
+JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeSendVirtualKey(JNIEnv*, jobject, jlong h,
+                                                                                      jint vk, jint unicode,
+                                                                                      jboolean down) {
+    proto::Key k;
+    k.scancode = static_cast<uint16_t>(vk);
+    k.unicode = static_cast<uint32_t>(unicode);
+    k.flags = static_cast<uint8_t>(proto::kKeyVirtual | (down ? proto::kKeyDown : 0));
+    client_of(h)->send(k);
+}
+
 JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeSendGeometry(JNIEnv*, jobject, jlong h,
                                                                                      jint width, jint height, jint dpi,
                                                                                      jint refresh_mhz, jint rotation,

@@ -270,6 +270,10 @@ struct Mouse {
 enum KeyFlags : uint8_t {
     kKeyDown = 1u << 0,
     kKeyExtended = 1u << 1,  // E0-prefixed scancode
+    // Shortcut keys (tablet shortcut bar): `scancode` holds a Windows virtual-key code, or is
+    // 0 and `unicode` names the key by the character it types in the PC's current layout.
+    // Unlike scancodes this means "the Z key" on QWERTZ too, so Ctrl+Z stays undo.
+    kKeyVirtual = 1u << 2,
 };
 
 // Keys travel as PC set-1 scancodes so the Windows keyboard layout decides the
