@@ -110,6 +110,7 @@ fun StreamScreen(
             factory = { ctx -> StreamSurfaceView(ctx, client) },
             update = { view ->
                 view.router.touchMode = settings.touchMode
+                view.router.multiFingerGestures = settings.touchGestures
                 view.setVideoFps(video.fps)
             },
             modifier = Modifier.align(Alignment.Center).aspectRatio(video.width.toFloat() / video.height),

@@ -17,10 +17,21 @@ class InputRouter(
 ) {
     var touchMode: TouchMode = TouchMode.Touch
     var trackpadSensitivity = 1.6f
+    /** Touch mode: two fingers scroll / pinch-zoom, three fingers swipe (see TouchGestures). */
+    var multiFingerGestures = true
 
     private var penInRange = false
     private val trackpad = TrackpadGestures()
     private val mouseEmu = MouseEmulation()
+    private val gestures = TouchGestures(object : TouchGestures.Output {
+        override fun cancelTouch() =
+            client.sendTouch(Proto.ACTION_CANCEL, 0, ids, xs, ys, pressures, majors, 0, System.nanoTime() / 1000)
+        override fun moveMouse(viewX: Float, viewY: Float) = moveAbs(viewX, viewY)
+        override fun wheel(x: Float, y: Float) = client.sendMouse(Proto.MOUSE_WHEEL, x, y)
+        override fun key(vk: Int, char: Int, down: Boolean) = client.sendShortcutKey(vk, char, down)
+    }, pixelsPerDp)
+    private val gx = FloatArray(MAX_POINTERS)
+    private val gy = FloatArray(MAX_POINTERS)
 
     // Reused buffers for touch frames (up to 10 contacts).
     private val ids = IntArray(MAX_POINTERS)
@@ -99,7 +110,30 @@ class InputRouter(
 
     // ------------------------------------------------------------------ native touch
 
+    /** Multi-finger sequences in Touch mode. True if the event was handled as a gesture. */
+    private fun gesture(e: MotionEvent): Boolean {
+        val lifted = if (e.actionMasked == MotionEvent.ACTION_POINTER_UP) e.actionIndex else -1
+        var n = 0
+        for (i in 0 until minOf(e.pointerCount, MAX_POINTERS)) {
+            if (i == lifted) continue
+            gx[n] = e.getX(i)
+            gy[n] = e.getY(i)
+            n++
+        }
+        when (e.actionMasked) {
+            MotionEvent.ACTION_POINTER_DOWN -> gestures.pointerDown(gx, gy, n)
+            MotionEvent.ACTION_POINTER_UP -> if (gestures.active) gestures.pointerUp(gx, gy, n)
+            MotionEvent.ACTION_MOVE -> if (gestures.active) gestures.move(gx, gy, n)
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> if (gestures.active) {
+                gestures.end()
+                return true
+            }
+        }
+        return gestures.active
+    }
+
     private fun touch(e: MotionEvent) {
+        if (multiFingerGestures && gesture(e)) return
         val action = when (e.actionMasked) {
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> Proto.ACTION_DOWN
             MotionEvent.ACTION_UP, MotionEvent.ACTION_POINTER_UP -> Proto.ACTION_UP

@@ -305,6 +305,13 @@ private fun SettingsCard(settings: Settings, hasPen: Boolean, onSettings: ((Sett
             onChange = { v -> onSettings { it.copy(showStats = v) } },
         )
         SwitchRow(
+            icon = Icons.Rounded.Gesture,
+            title = "Scroll & zoom gestures",
+            subtitle = "Touch mode: two fingers scroll or pinch to zoom, three-finger swipes: up Task View, down desktop, sideways switch apps",
+            checked = settings.touchGestures,
+            onChange = { v -> onSettings { it.copy(touchGestures = v) } },
+        )
+        SwitchRow(
             icon = Icons.Rounded.Wifi,
             title = "Connect automatically",
             subtitle = "When the app is open and a PC you've connected to before is on this Wi-Fi",

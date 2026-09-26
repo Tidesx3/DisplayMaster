@@ -35,6 +35,7 @@ data class Settings(
     val showStats: Boolean = false,
     val showShortcuts: Boolean = true,  // drawing-app shortcut bar on the stream's left edge
     val autoConnect: Boolean = false,   // connect to a known PC as soon as it shows up on the network
+    val touchGestures: Boolean = true,  // Touch mode: 2-finger scroll / pinch-zoom, 3-finger swipes
     val preferredCodec: Int = Proto.CODEC_HEVC,
 )
 
@@ -139,6 +140,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
             .putBoolean("showStats", s.showStats)
             .putBoolean("showShortcuts", s.showShortcuts)
             .putBoolean("autoConnect", s.autoConnect)
+            .putBoolean("touchGestures", s.touchGestures)
             .putInt("codec", s.preferredCodec)
             .apply()
         if (_state.value.phase == Phase.Streaming) pushSettings()
@@ -209,6 +211,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
         showStats = prefs.getBoolean("showStats", false),
         showShortcuts = prefs.getBoolean("showShortcuts", true),
         autoConnect = prefs.getBoolean("autoConnect", false),
+        touchGestures = prefs.getBoolean("touchGestures", true),
         preferredCodec = prefs.getInt("codec", Proto.CODEC_HEVC),
     )
 
