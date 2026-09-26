@@ -96,6 +96,22 @@ if (-not $SkipAndroid) {
     } finally { Pop-Location }
     New-Item -ItemType Directory -Force "$Out\android" | Out-Null
     Copy-Item "$root\android\app\build\outputs\apk\release\app-release.apk" "$Out\android\DisplayMaster.apk"
+
+    # Native code looks up Kotlin callbacks by name; one stripped by R8 crashes the app at launch.
+    $jni = Select-String -Path "$root\android\app\src\main\cpp\jni_bridge.cpp" -Pattern 'GetMethodID\(cls, "(\w+)"' -AllMatches |
+        ForEach-Object { $_.Matches } | ForEach-Object { $_.Groups[1].Value }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::OpenRead("$Out\android\DisplayMaster.apk")
+    $dex = ''
+    foreach ($entry in $zip.Entries | Where-Object Name -like 'classes*.dex') {
+        $reader = New-Object IO.StreamReader($entry.Open(), [Text.Encoding]::GetEncoding(28591))
+        $dex += $reader.ReadToEnd()
+        $reader.Dispose()
+    }
+    $zip.Dispose()
+    $missing = @($jni | Where-Object { -not $dex.Contains($_) })
+    if (-not $jni) { throw 'found no JNI callbacks in jni_bridge.cpp - update this check' }
+    if ($missing) { throw "release APK lost JNI callbacks: $($missing -join ', ') - keep them in android\app\proguard-rules.pro" }
 }
 
 Step 'Android platform-tools (adb)'
