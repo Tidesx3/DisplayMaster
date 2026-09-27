@@ -61,7 +61,61 @@ bool apply_paths(std::vector<DISPLAYCONFIG_PATH_INFO>& paths, std::vector<DISPLA
     return r == ERROR_SUCCESS;
 }
 
+bool same_source(const DISPLAYCONFIG_PATH_INFO& a, const DISPLAYCONFIG_PATH_INFO& b) {
+    return a.sourceInfo.adapterId == b.sourceInfo.adapterId && a.sourceInfo.id == b.sourceInfo.id;
+}
+
+std::optional<DISPLAYCONFIG_TARGET_PREFERRED_MODE> query_preferred_mode(const DISPLAYCONFIG_PATH_TARGET_INFO& tgt) {
+    DISPLAYCONFIG_TARGET_PREFERRED_MODE pref{};
+    pref.header.type = DISPLAYCONFIG_DEVICE_INFO_GET_TARGET_PREFERRED_MODE;
+    pref.header.size = sizeof pref;
+    pref.header.adapterId = tgt.adapterId;
+    pref.header.id = tgt.id;
+    if (DisplayConfigGetDeviceInfo(&pref.header) != ERROR_SUCCESS) return std::nullopt;
+    return pref;
+}
+
 }  // namespace
+
+void remove_paths(std::vector<DISPLAYCONFIG_PATH_INFO>& paths, std::vector<DISPLAYCONFIG_MODE_INFO>& modes,
+                  const std::function<bool(const DISPLAYCONFIG_PATH_INFO&)>& remove,
+                  const PreferredModeFn& preferred) {
+    std::vector<DISPLAYCONFIG_PATH_INFO> removed;
+    for (auto it = paths.begin(); it != paths.end();) {
+        if (remove(*it)) {
+            removed.push_back(*it);
+            it = paths.erase(it);
+        } else {
+            ++it;
+        }
+    }
+    for (const auto& p : paths) {
+        const auto shares = [&](const DISPLAYCONFIG_PATH_INFO& o) { return &o != &p && same_source(o, p); };
+        // Only a screen that was duplicated with a removed one and now has its desktop to itself.
+        if (std::none_of(removed.begin(), removed.end(), shares) || std::any_of(paths.begin(), paths.end(), shares))
+            continue;
+        const auto pref = preferred(p.targetInfo);
+        if (!pref) continue;
+        const UINT32 si = p.sourceInfo.modeInfoIdx;
+        if (si < modes.size() && modes[si].infoType == DISPLAYCONFIG_MODE_INFO_TYPE_SOURCE) {
+            auto& sm = modes[si].sourceMode;
+            if (sm.width != pref->width || sm.height != pref->height) {
+                DM_LOGI("Display target %u: back to %ux%u (duplicated at %ux%u)", p.targetInfo.id, pref->width,
+                        pref->height, sm.width, sm.height);
+                sm.width = pref->width;
+                sm.height = pref->height;
+            }
+        }
+        const UINT32 ti = p.targetInfo.modeInfoIdx;
+        if (ti < modes.size() && modes[ti].infoType == DISPLAYCONFIG_MODE_INFO_TYPE_TARGET) {
+            // Panels usually keep their native signal and scale a duplicated desktop; keep its
+            // refresh rate then, and only replace a signal that was switched to the shared size.
+            const auto& cur = modes[ti].targetMode.targetVideoSignalInfo.activeSize;
+            const auto& want = pref->targetMode.targetVideoSignalInfo.activeSize;
+            if (cur.cx != want.cx || cur.cy != want.cy) modes[ti].targetMode = pref->targetMode;
+        }
+    }
+}
 
 std::vector<MonitorInfo> enumerate_monitors(bool include_inactive) {
     std::vector<DISPLAYCONFIG_PATH_INFO> paths;
@@ -124,12 +178,22 @@ bool set_target_active(const LUID& adapter, uint32_t target_id, bool active) {
     auto is_target = [&](const DISPLAYCONFIG_PATH_INFO& p) {
         return p.targetInfo.adapterId == adapter && p.targetInfo.id == target_id;
     };
-    const bool currently_active = std::any_of(paths.begin(), paths.end(), is_target);
-    if (currently_active == active) return true;
+    const auto current = std::find_if(paths.begin(), paths.end(), is_target);
+    const bool attached = current != paths.end();
+    const bool duplicated =
+        attached && std::count_if(paths.begin(), paths.end(),
+                                  [&](const DISPLAYCONFIG_PATH_INFO& p) { return same_source(p, *current); }) > 1;
 
     if (!active) {
-        paths.erase(std::remove_if(paths.begin(), paths.end(), is_target), paths.end());
+        if (!attached) return true;
+        remove_paths(paths, modes, is_target, query_preferred_mode);
         return apply_paths(paths, modes);
+    }
+    if (attached && !duplicated) return true;
+    if (duplicated) {
+        // Windows' default for a new display on a laptop. Extend instead.
+        DM_LOGI("Display target %u is duplicating another screen - giving it its own desktop", target_id);
+        remove_paths(paths, modes, is_target, query_preferred_mode);
     }
 
     // Activating: find an inactive path for this target whose source isn't in use.
@@ -138,9 +202,8 @@ bool set_target_active(const LUID& adapter, uint32_t target_id, bool active) {
     if (!query_config(QDC_ALL_PATHS, all, all_modes)) return false;
     for (const auto& p : all) {
         if (!is_target(p) || !p.targetInfo.targetAvailable) continue;
-        const bool source_used = std::any_of(paths.begin(), paths.end(), [&](const DISPLAYCONFIG_PATH_INFO& a) {
-            return a.sourceInfo.adapterId == p.sourceInfo.adapterId && a.sourceInfo.id == p.sourceInfo.id;
-        });
+        const bool source_used = std::any_of(paths.begin(), paths.end(),
+                                             [&](const DISPLAYCONFIG_PATH_INFO& a) { return same_source(a, p); });
         if (source_used) continue;
         DISPLAYCONFIG_PATH_INFO np = p;
         np.flags |= DISPLAYCONFIG_PATH_ACTIVE;

@@ -43,7 +43,7 @@ target_link_libraries(DisplayMasterHost PRIVATE dm_host_core)
 target_link_options(DisplayMasterHost PRIVATE /ENTRY:wmainCRTStartup)
 
 if(DM_BUILD_TESTS)
-  add_executable(dm_host_tests tests/virtual_display_test.cpp tests/cursor_test.cpp tests/json_test.cpp tests/approval_test.cpp)
+  add_executable(dm_host_tests tests/virtual_display_test.cpp tests/display_config_test.cpp tests/cursor_test.cpp tests/json_test.cpp tests/approval_test.cpp)
   target_link_libraries(dm_host_tests PRIVATE dm_host_core GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(dm_host_tests)

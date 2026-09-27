@@ -289,7 +289,8 @@ std::optional<MonitorInfo> VirtualDisplayManager::apply_mode(size_t slot, const 
         DM_LOGE("Virtual monitor slot %zu did not appear", slot);
         return std::nullopt;
     }
-    if (!mon->active && !set_target_active(mon->adapter_luid, mon->target_id, true)) return std::nullopt;
+    // Also when active: Windows may have attached it as a duplicate of the laptop's screen.
+    if (!set_target_active(mon->adapter_luid, mon->target_id, true)) return std::nullopt;
     mon = wait_for_slot(slot, true, 3000);
     if (!mon) return std::nullopt;
 

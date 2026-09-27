@@ -5,6 +5,7 @@
 #include <windows.h>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -36,8 +37,19 @@ std::vector<MonitorInfo> enumerate_monitors(bool include_inactive);
 
 std::optional<MonitorInfo> find_primary_monitor();
 
-// Attach / detach a target to the desktop. Keeps every other path as-is.
+// Attach / detach a target to the desktop. Keeps every other path as-is. A target that
+// Windows duplicated onto another screen counts as detached: it gets a desktop of its own.
 bool set_target_active(const LUID& adapter, uint32_t target_id, bool active);
+
+// Exposed for tests: drop the paths matching `remove` from an active topology. On a laptop,
+// Windows duplicates a new display onto the built-in screen by default, running both at a
+// resolution they share (1920x1080 on a 2880x1800 panel); screens left behind by a removed
+// duplicate get their preferred (native) resolution back.
+using PreferredModeFn =
+    std::function<std::optional<DISPLAYCONFIG_TARGET_PREFERRED_MODE>(const DISPLAYCONFIG_PATH_TARGET_INFO&)>;
+void remove_paths(std::vector<DISPLAYCONFIG_PATH_INFO>& paths, std::vector<DISPLAYCONFIG_MODE_INFO>& modes,
+                  const std::function<bool(const DISPLAYCONFIG_PATH_INFO&)>& remove,
+                  const PreferredModeFn& preferred);
 
 // Set resolution / refresh / desktop position of an active monitor.
 // `quiet`: don't log failures (caller retries).
