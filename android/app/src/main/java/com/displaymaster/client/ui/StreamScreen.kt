@@ -47,6 +47,7 @@ import androidx.compose.material.icons.rounded.Keyboard
 import androidx.compose.material.icons.rounded.LinkOff
 import androidx.compose.material.icons.rounded.Mouse
 import androidx.compose.material.icons.rounded.OpenInFull
+import androidx.compose.material.icons.automirrored.rounded.Input
 import androidx.compose.material.icons.automirrored.rounded.ScreenShare
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Usb
@@ -55,6 +56,7 @@ import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -82,6 +84,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.displaymaster.client.DisplayMode
 import com.displaymaster.client.KeyMapper
+import com.displaymaster.client.MoveNotice
+import com.displaymaster.client.WindowSheet
 import com.displaymaster.client.NativeClient
 import com.displaymaster.client.Settings
 import com.displaymaster.client.StreamSurfaceView
@@ -96,6 +100,9 @@ fun StreamScreen(
     state: UiState,
     settings: Settings,
     client: NativeClient,
+    windowSheet: WindowSheet?,
+    moveNotice: MoveNotice?,
+    windows: WindowActions,
     onSettings: ((Settings) -> Settings) -> Unit,
     onDisconnect: () -> Unit,
 ) {
@@ -133,7 +140,15 @@ fun StreamScreen(
         )
 
         if (settings.showStats) StatsPill(state, Modifier.align(Alignment.TopStart).padding(12.dp))
-        if (settings.showShortcuts) ShortcutBar(client, Modifier.align(Alignment.CenterStart))
+        if (settings.showShortcuts) {
+            ShortcutBar(
+                client,
+                onPullWindow = if (state.canMoveWindows) ({ windows.pull(0) }) else null,
+                onChooseWindow = windows.open,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
+        }
+        MoveNoticePill(moveNotice, windows.noticeShown, Modifier.align(Alignment.TopCenter).padding(top = 16.dp))
 
         EdgeHandle(visible = !panelOpen, onOpen = { panelOpen = true }, modifier = Modifier.align(Alignment.CenterEnd))
 
@@ -160,11 +175,14 @@ fun StreamScreen(
                 onRotationLock = { rotationLocked = it },
                 onSettings = onSettings,
                 onKeyboard = { keyboardOn = !keyboardOn; panelOpen = false },
+                onPullWindow = { windows.pull(0); panelOpen = false },
+                onChooseWindow = { windows.open(); panelOpen = false },
                 onDisconnect = onDisconnect,
             )
         }
 
         if (keyboardOn) KeyboardBridge(client, onClose = { keyboardOn = false })
+        if (windowSheet != null && state.canMoveWindows) WindowPicker(windowSheet, windows)
     }
 }
 
@@ -200,6 +218,8 @@ private fun QuickPanel(
     onKeyboard: () -> Unit,
     rotationLocked: Boolean,
     onRotationLock: (Boolean) -> Unit,
+    onPullWindow: () -> Unit,
+    onChooseWindow: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
     Surface(
@@ -261,6 +281,16 @@ private fun QuickPanel(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.lock_rotation), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                 Switch(checked = rotationLocked, onCheckedChange = onRotationLock)
+            }
+            if (state.canMoveWindows) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilledTonalButton(onClick = onPullWindow, modifier = Modifier.weight(1f)) {
+                        Icon(Icons.AutoMirrored.Rounded.Input, null, Modifier.size(18.dp))
+                        Spacer(Modifier.size(8.dp))
+                        Text(stringResource(R.string.pull_window), maxLines = 1)
+                    }
+                    OutlinedButton(onClick = onChooseWindow) { Text(stringResource(R.string.choose_window), maxLines = 1) }
+                }
             }
             FilledTonalButton(onClick = onKeyboard, modifier = Modifier.fillMaxWidth()) {
                 Icon(Icons.Rounded.Keyboard, null)

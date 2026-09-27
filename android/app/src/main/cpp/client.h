@@ -41,6 +41,11 @@ public:
     virtual bool is_known_pc(const std::string& pc_key) = 0;
     // A PC this device doesn't know: show `code`; the user answers with confirm_pairing().
     virtual void on_pairing(const std::string& code, const std::string& pc_key) = 0;
+    // From the Welcome, before kConnected: what the PC offers (proto::HostFeatures).
+    virtual void on_host_features(uint32_t features) = 0;
+    // Replies to WindowListRequest / MoveWindow.
+    virtual void on_window_list(const proto::WindowList& list) = 0;
+    virtual void on_move_result(const proto::MoveWindowResult& result) = 0;
 };
 
 class Client {

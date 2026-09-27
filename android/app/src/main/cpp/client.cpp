@@ -264,6 +264,7 @@ void Client::run(std::string host, uint16_t port, proto::Hello hello, std::optio
                 }
                 welcomed = true;
                 LOGI("connected to %s", w->host_name.c_str());
+                listener_->on_host_features(w->features);
                 listener_->on_state(ClientListener::kConnected, w->host_name);
                 continue;
             }
@@ -335,6 +336,12 @@ void Client::handle(const proto::RawMessage& m) {
             break;
         case proto::MsgType::Ping:
             if (auto p = proto::decode<proto::Ping>(m.payload)) send(proto::Pong{p->sender_time_us, mono_us()});
+            break;
+        case proto::MsgType::WindowList:
+            if (auto l = proto::decode<proto::WindowList>(m.payload)) listener_->on_window_list(*l);
+            break;
+        case proto::MsgType::MoveWindowResult:
+            if (auto r = proto::decode<proto::MoveWindowResult>(m.payload)) listener_->on_move_result(*r);
             break;
         default: break;
     }

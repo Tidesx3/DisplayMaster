@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
@@ -25,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Input
 import androidx.compose.material.icons.automirrored.rounded.Redo
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.rounded.ChevronLeft
@@ -58,9 +60,16 @@ import com.displaymaster.client.NativeClient
  * PC's layout decides which key is meant (Ctrl+Z stays undo on QWERTZ / AZERTY).
  * Modifiers work both ways: hold one while drawing with the pen, or tap it to latch it
  * (it stays pressed until tapped again).
+ * [onPullWindow] (extend mode): a Window button on top pulls the last used PC window onto
+ * this screen; a long press opens the picker ([onChooseWindow]).
  */
 @Composable
-fun ShortcutBar(client: NativeClient, modifier: Modifier = Modifier) {
+fun ShortcutBar(
+    client: NativeClient,
+    onPullWindow: (() -> Unit)?,
+    onChooseWindow: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var expanded by rememberSaveable { mutableStateOf(true) }
     val latched = remember { mutableStateListOf<Int>() }
     // Leaving the stream must not leave Ctrl or Space stuck on the PC.
@@ -87,6 +96,15 @@ fun ShortcutBar(client: NativeClient, modifier: Modifier = Modifier) {
                 ) {
                     ShortcutButton(icon = Icons.Rounded.ChevronLeft, label = stringResource(R.string.sc_hide)) { expanded = false }
                     Divider()
+                    if (onPullWindow != null) {
+                        ShortcutButton(
+                            icon = Icons.AutoMirrored.Rounded.Input,
+                            label = stringResource(R.string.sc_window),
+                            onLongClick = onChooseWindow,
+                            onClick = onPullWindow,
+                        )
+                        Divider()
+                    }
                     ShortcutButton(icon = Icons.AutoMirrored.Rounded.Undo, label = stringResource(R.string.sc_undo)) { client.combo(VK_CONTROL, 'z') }
                     ShortcutButton(icon = Icons.AutoMirrored.Rounded.Redo, label = stringResource(R.string.sc_redo)) { client.combo(VK_CONTROL, 'y') }
                     Divider()
@@ -127,6 +145,7 @@ private fun ShortcutButton(
     label: String,
     active: Boolean = false,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -134,7 +153,7 @@ private fun ShortcutButton(
         modifier
             .width(56.dp)
             .background(if (active) colors.primary else Color.Transparent, RoundedCornerShape(12.dp))
-            .let { m -> if (onClick != null) m.clickable(onClick = onClick) else m }
+            .let { m -> if (onClick != null) m.combinedClickable(onLongClick = onLongClick, onClick = onClick) else m }
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {

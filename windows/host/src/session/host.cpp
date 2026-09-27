@@ -125,6 +125,7 @@ Host::Host(const HostOptions& opts) : opts_(opts), vdm_(std::make_unique<MttVddP
     opts_.pen_curve = {config_.get_float("pen_min", 0.0f), config_.get_float("pen_max", 1.0f),
                        config_.get_float("pen_gamma", 1.0f)};
     load_stream_options();
+    opts_.windows = &windows_;
     opts_.placement_for = [this](const std::string& device_id) {
         return placement_from_name(config_.get_string("place." + device_id, "right")).value_or(Placement::Right);
     };
@@ -149,6 +150,8 @@ bool Host::start() {
     if (!start_listening()) return false;
     update_advertising();
     if (opts_.adb) adb_.start(opts_.port, opts_.adb_auto_launch);
+    // Test engines (--test-mode, --no-input) leave the shortcut to the installed one.
+    if (!opts_.test_mode && opts_.inject_input && config_.get_bool("window_hotkey", true)) windows_.start_hotkey();
     const std::wstring pipe = opts_.test_mode ? std::wstring(ControlServer::kPipeName) + L".Test" : ControlServer::kPipeName;
     if (!control_.start([this](const std::string& req) { return handle_control(req); }, pipe))
         DM_LOGW("Control API unavailable - the DisplayMaster app can't show status");
@@ -168,6 +171,7 @@ void Host::update_advertising() {
 }
 
 void Host::stop() {
+    windows_.stop_hotkey();
     mdns_.stop();
     control_.stop();
     adb_.stop();
@@ -183,6 +187,18 @@ void Host::stop() {
 void Host::reap() {
     std::lock_guard lock(mu_);
     std::erase_if(sessions_, [](const auto& kv) { return kv.second->finished(); });
+}
+
+std::vector<RectI> Host::device_screens() {
+    std::vector<RectI> out;
+    std::lock_guard lock(mu_);
+    for (const auto& [id, s] : sessions_) {
+        if (s->finished()) continue;
+        const auto st = s->status();
+        if (st.streaming && st.mode == proto::DisplayMode::Extend && st.monitor_rect.w > 0)
+            out.push_back(st.monitor_rect);
+    }
+    return out;
 }
 
 size_t Host::session_count() {
@@ -270,6 +286,15 @@ std::string Host::handle_control(const std::string& request) {
         for (auto& [id, s] : sessions_) s->set_pressure_curve(c);
         return ok_json();
     }
+    if (cmd == "set_window_hotkey") {
+        // Ctrl+Alt+Win+Right sends the active window to the devices in turn.
+        const bool enabled = json::get_bool(request, "enabled").value_or(true);
+        config_.set_bool("window_hotkey", enabled);
+        if (!enabled) windows_.stop_hotkey();
+        else if (!opts_.test_mode && opts_.inject_input && !windows_.hotkey_active() && !windows_.start_hotkey())
+            return error_json("shortcut in use by another app");
+        return ok_json();
+    }
     if (cmd == "shutdown") {
         DM_LOGI("Shutdown requested by the DisplayMaster app");
         if (on_shutdown_requested) on_shutdown_requested();
@@ -287,6 +312,7 @@ std::string Host::status_json() {
     w.begin_object().field("ok", true).field("version", DM_VERSION);
     w.key("host").begin_object();
     w.field("name", to_utf8(name)).field("port", static_cast<int>(opts_.port)).field("wifi", allow_wifi_);
+    w.field("window_hotkey", config_.get_bool("window_hotkey", true)).field("window_hotkey_active", windows_.hotkey_active());
     PressureCurve pen;
     HostOptions stream;
     {

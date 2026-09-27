@@ -10,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowCompat
@@ -23,6 +24,7 @@ import androidx.window.layout.FoldingFeature
 import androidx.window.layout.WindowInfoTracker
 import com.displaymaster.client.ui.HomeScreen
 import com.displaymaster.client.ui.StreamScreen
+import com.displaymaster.client.ui.WindowActions
 import com.displaymaster.client.ui.theme.DisplayMasterTheme
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -51,6 +53,11 @@ class MainActivity : ComponentActivity() {
                 val settings by vm.settings.collectAsStateWithLifecycle()
                 val recents by vm.recents.collectAsStateWithLifecycle()
                 val nearby by vm.discovery.pcs.collectAsStateWithLifecycle()
+                val windowSheet by vm.windowSheet.collectAsStateWithLifecycle()
+                val moveNotice by vm.moveNotice.collectAsStateWithLifecycle()
+                val windowActions = remember {
+                    WindowActions(vm::pullWindow, vm::sendWindowBack, vm::openWindows, vm::closeWindows, vm::clearMoveNotice)
+                }
                 val streaming = state.phase == Phase.Streaming && state.video != null
 
                 DisposableEffect(streaming) {
@@ -63,6 +70,9 @@ class MainActivity : ComponentActivity() {
                         state = state,
                         settings = settings,
                         client = vm.client,
+                        windowSheet = windowSheet,
+                        moveNotice = moveNotice,
+                        windows = windowActions,
                         onSettings = vm::updateSettings,
                         onDisconnect = vm::disconnect,
                     )

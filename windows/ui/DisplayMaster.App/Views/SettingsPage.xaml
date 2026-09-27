@@ -86,6 +86,31 @@
                 </StackPanel>
             </Border>
 
+            <!-- Moving windows -->
+            <Border Style="{StaticResource CardStyle}">
+                <Grid ColumnSpacing="20" RowSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <FontIcon VerticalAlignment="Top" FontSize="22" Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Glyph="&#xE8A7;" />
+                    <StackPanel Grid.Column="1" Spacing="2">
+                        <TextBlock x:Uid="SettingsPage_23" Style="{StaticResource SubtitleTextBlockStyle}" />
+                        <TextBlock x:Uid="SettingsPage_24" Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <ToggleSwitch Grid.Column="2" VerticalAlignment="Center" IsOn="{x:Bind Settings.WindowHotkey, Mode=TwoWay}" />
+                    <InfoBar x:Uid="SettingsPage_25" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
+                        IsClosable="False"
+                        IsOpen="{x:Bind Settings.WindowHotkeyTaken, Mode=OneWay}"
+                        Severity="Warning" />
+                </Grid>
+            </Border>
+
             <!-- Startup -->
             <Border Style="{StaticResource CardStyle}">
                 <Grid ColumnSpacing="20">

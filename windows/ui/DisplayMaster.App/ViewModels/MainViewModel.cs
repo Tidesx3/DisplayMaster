@@ -186,6 +186,7 @@ public sealed partial class MainViewModel : ObservableObject, IDisposable
                 UsbDevicesText = h.AdbReady.Count > 0 ? string.Join(", ", h.AdbReady) : "None";
                 if (h.Pen is { } pen) Pen.Load(pen);
                 if (h.Stream is { } stream) Settings.Load(stream);
+                Settings.LoadWindowHotkey(h.WindowHotkey, h.WindowHotkeyActive);
             }
             _applyingHostState = false;
             SyncDevices(status?.Sessions ?? new List<SessionInfo>());

@@ -16,6 +16,7 @@
 #include "transport/adb.h"
 #include "transport/mdns.h"
 #include "transport/connection.h"
+#include "window/window_mover.h"
 
 namespace dm {
 
@@ -41,6 +42,8 @@ private:
     void load_stream_options();
     void update_advertising();
     std::string status_json();
+    // Screens of the devices that extend the desktop, in connection order.
+    std::vector<RectI> device_screens();
 
     HostOptions opts_;
     Config config_{host_data_dir(opts_) / L"host.ini"};
@@ -52,6 +55,8 @@ private:
     ApprovalBroker approvals_{host_data_dir(opts_) / L"trusted_devices.txt"};
     const noise::KeyPair identity_ = load_or_create_identity(host_data_dir(opts_) / L"identity.key");
     MdnsAdvertiser mdns_;
+    // Declared before sessions_: sessions use it until they are gone.
+    WindowMover windows_{[this] { return device_screens(); }};
     std::mutex mu_;
     std::map<uint32_t, std::unique_ptr<Session>> sessions_;
     uint32_t next_id_ = 1;

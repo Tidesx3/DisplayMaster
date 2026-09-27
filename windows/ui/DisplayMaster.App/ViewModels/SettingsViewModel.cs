@@ -49,6 +49,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Engine started with picture flags: they win, the controls are read-only.</summary>
     [ObservableProperty] public partial bool Locked { get; set; }
 
+    /// <summary>The engine's send-window-to-device shortcut (Ctrl+Alt+Win+Right).</summary>
+    [ObservableProperty] public partial bool WindowHotkey { get; set; } = true;
+    /// <summary>On, but another app registered the same keys first.</summary>
+    [ObservableProperty] public partial bool WindowHotkeyTaken { get; set; }
+
     [ObservableProperty] public partial bool StartWithWindows { get; set; }
     /// <summary>Windows notification when a device connects or disconnects.</summary>
     [ObservableProperty] public partial bool NotifyDevices { get; set; } = true;
@@ -91,6 +96,31 @@ public sealed partial class SettingsViewModel : ObservableObject
         Scale = Scales.MinBy(c => Math.Abs(c.Value - s.Scale));
         Codec = Codecs.FirstOrDefault(c => c.Value == s.Codec) ?? Codecs[0];
         _applying = false;
+    }
+
+    public void LoadWindowHotkey(bool enabled, bool active)
+    {
+        if (_hotkeyChanging) return;  // the engine hasn't seen the user's change yet
+        _applying = true;
+        WindowHotkey = enabled;
+        _applying = false;
+        WindowHotkeyTaken = enabled && !active;
+    }
+
+    private bool _hotkeyChanging;
+
+    async partial void OnWindowHotkeyChanged(bool value)
+    {
+        if (_applying) return;
+        _hotkeyChanging = true;
+        try
+        {
+            await _host.SetWindowHotkeyAsync(value);
+        }
+        finally
+        {
+            _hotkeyChanging = false;
+        }
     }
 
     partial void OnAutoBitrateChanged(bool value) => Changed();

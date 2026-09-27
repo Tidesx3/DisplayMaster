@@ -45,6 +45,12 @@ try {
             if ($r.Code) { throw 'client failed' }
         }
     }
+    Check 'window list; pulling a window needs extend mode' {
+        $r = Run-Client "--port $Port --clients 1 --seconds 3 --size 1280x800 --windows"
+        if ($r.Code) { throw 'client failed' }
+        if ($r.Output -notmatch 'windows: (\d+) listed') { throw 'no window list' }
+        if ($r.Output -notmatch 'pull last window: not extended') { throw 'a mirroring device must not move windows' }
+    }
 } finally {
     Stop-Process -Id $engine.Id -Force -ErrorAction SilentlyContinue
 }

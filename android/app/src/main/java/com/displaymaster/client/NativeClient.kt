@@ -1,5 +1,6 @@
 package com.displaymaster.client
 
+import android.graphics.Bitmap
 import android.view.Surface
 
 /** Wire-protocol enums, mirrored from protocol/include/dm/protocol.h. */
@@ -45,6 +46,23 @@ object Proto {
     const val POSTURE_FLAT = 1
     const val POSTURE_HALF_OPENED = 2
     const val POSTURE_FOLDED = 3
+
+    const val FEATURE_WINDOWS = 1 shl 0
+
+    const val WINDOW_HERE = 1 shl 0
+    const val WINDOW_MINIMIZED = 1 shl 1
+    const val WINDOW_MAXIMIZED = 1 shl 2
+
+    const val TARGET_HERE = 0
+    const val TARGET_BACK = 1
+
+    const val MOVE_MOVED = 0
+    const val MOVE_NOTHING = 1
+    const val MOVE_GONE = 2
+    const val MOVE_DENIED = 3
+    const val MOVE_NOT_RESPONDING = 4
+    const val MOVE_NOT_EXTENDED = 5
+    const val MOVE_FAILED = 6
 }
 
 enum class DisplayMode(val wire: Int) { Extend(0), Mirror(1), Tablet(2) }
@@ -78,6 +96,15 @@ data class StreamStats(
     val lostFrames: Int = 0,    // UDP frames lost in the last second
 )
 
+/** A window on the PC (see WindowInfo in protocol.h). */
+data class PcWindow(val id: Long, val title: String, val app: String, val flags: Int, val icon: Bitmap?) {
+    val here get() = flags and Proto.WINDOW_HERE != 0
+    val minimized get() = flags and Proto.WINDOW_MINIMIZED != 0
+}
+
+/** The PC's answer to [NativeClient.moveWindow]; [result] is one of Proto.MOVE_*. */
+data class MoveResult(val result: Int, val target: Int, val title: String)
+
 /**
  * Thin JNI wrapper over the C++ client (android/app/src/main/cpp). Callbacks arrive on
  * native threads; [Listener] implementations must hop to the main thread themselves.
@@ -91,6 +118,10 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
         fun isKnownPc(pcKey: String): Boolean
         /** A PC this device doesn't know: show [code]; answer with [confirmPairing]. */
         fun onPairing(code: String, pcKey: String)
+        /** Right after connecting: what the PC offers (Proto.FEATURE_*). */
+        fun onHostFeatures(features: Int)
+        fun onWindowList(windows: List<PcWindow>)
+        fun onMoveResult(result: MoveResult)
     }
 
     enum class State { Connecting, Connected, Streaming, Disconnected, Error }
@@ -133,6 +164,12 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     fun sendSettings(mode: DisplayMode, touchMode: TouchMode, maxFps: Int, bitrateKbps: Int, codec: Int) =
         nativeSendSettings(handle, mode.wire, touchMode.wire, maxFps, bitrateKbps, codec)
 
+    /** Asks for the PC's windows; the answer arrives in [Listener.onWindowList]. */
+    fun requestWindows() = nativeRequestWindows(handle)
+
+    /** [id] 0: the window used last on the other screens (or, back, on this one). */
+    fun moveWindow(id: Long, target: Int) = nativeMoveWindow(handle, id, target)
+
     override fun close() {
         if (handle != 0L) {
             nativeDestroy(handle)
@@ -162,6 +199,29 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     @Suppress("unused")
     private fun onNativePairing(code: String, pcKey: String) = listener.onPairing(code, pcKey)
 
+    @Suppress("unused")
+    private fun onNativeHostFeatures(features: Int) = listener.onHostFeatures(features)
+
+    @Suppress("unused")
+    private fun onNativeWindowList(
+        ids: LongArray, titles: Array<String>, apps: Array<String>, flags: IntArray, iconSizes: IntArray, icons: Array<ByteArray?>,
+    ) = listener.onWindowList(ids.indices.map { i -> PcWindow(ids[i], titles[i], apps[i], flags[i], iconBitmap(icons[i], iconSizes[i])) })
+
+    @Suppress("unused")
+    private fun onNativeMoveResult(result: Int, target: Int, title: String) =
+        listener.onMoveResult(MoveResult(result, target, title))
+
+    /** RGBA with straight alpha, as the PC sends it. */
+    private fun iconBitmap(rgba: ByteArray?, size: Int): Bitmap? {
+        if (rgba == null || size <= 0 || rgba.size != size * size * 4) return null
+        val argb = IntArray(size * size) { i ->
+            val o = i * 4
+            (rgba[o + 3].toInt() and 0xff shl 24) or (rgba[o].toInt() and 0xff shl 16) or
+                (rgba[o + 1].toInt() and 0xff shl 8) or (rgba[o + 2].toInt() and 0xff)
+        }
+        return Bitmap.createBitmap(argb, size, size, Bitmap.Config.ARGB_8888)
+    }
+
     private external fun nativeCreate(): Long
     private external fun nativeDestroy(handle: Long)
     private external fun nativeConnect(
@@ -189,6 +249,8 @@ class NativeClient(private val listener: Listener) : AutoCloseable {
     private external fun nativeSendSettings(
         handle: Long, mode: Int, touchMode: Int, maxFps: Int, bitrateKbps: Int, codec: Int,
     )
+    private external fun nativeRequestWindows(handle: Long)
+    private external fun nativeMoveWindow(handle: Long, id: Long, target: Int)
 
     companion object {
         init {

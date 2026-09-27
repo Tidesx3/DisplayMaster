@@ -25,11 +25,12 @@ add_library(dm_host_core STATIC
   src/session/identity.cpp
   src/ipc/control_server.cpp
   src/setup/vdd_setup.cpp
+  src/window/window_mover.cpp
 )
 target_include_directories(dm_host_core
   PUBLIC src
   PRIVATE ${PROJECT_SOURCE_DIR}/third_party/nvenc ${PROJECT_SOURCE_DIR}/third_party/amf/include)
-target_link_libraries(dm_host_core PUBLIC dm_protocol d3d11 dxgi d3dcompiler ws2_32 iphlpapi advapi32 dnsapi shell32 ole32 setupapi newdev user32 crypt32)
+target_link_libraries(dm_host_core PUBLIC dm_protocol d3d11 dxgi d3dcompiler ws2_32 iphlpapi advapi32 dnsapi shell32 ole32 setupapi newdev user32 crypt32 dwmapi version)
 # Synthetic pointer API needs the Windows 10 1809 headers.
 target_compile_definitions(dm_host_core PUBLIC _WIN32_WINNT=0x0A00 NTDDI_VERSION=0x0A000006)
 # Release version (tools\package.ps1 -Version passes it in; the app compares it for updates).
@@ -43,7 +44,8 @@ target_link_libraries(DisplayMasterHost PRIVATE dm_host_core)
 target_link_options(DisplayMasterHost PRIVATE /ENTRY:wmainCRTStartup)
 
 if(DM_BUILD_TESTS)
-  add_executable(dm_host_tests tests/virtual_display_test.cpp tests/display_config_test.cpp tests/cursor_test.cpp tests/json_test.cpp tests/approval_test.cpp)
+  add_executable(dm_host_tests tests/virtual_display_test.cpp tests/display_config_test.cpp tests/cursor_test.cpp tests/json_test.cpp tests/approval_test.cpp
+    tests/window_mover_test.cpp)
   target_link_libraries(dm_host_tests PRIVATE dm_host_core GTest::gtest_main)
   include(GoogleTest)
   gtest_discover_tests(dm_host_tests)

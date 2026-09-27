@@ -65,6 +65,7 @@ void Welcome::write(ByteWriter& w) const {
     w.str(reason);
     w.str(host_name);
     w.u32(session_id);
+    w.u32(features);
 }
 bool Welcome::read(ByteReader& r) {
     version = r.u16();
@@ -72,6 +73,7 @@ bool Welcome::read(ByteReader& r) {
     reason = r.str();
     host_name = r.str();
     session_id = r.u32();
+    features = r.remaining() >= 4 ? r.u32() : 0;
     return r.ok();
 }
 
@@ -267,6 +269,62 @@ bool VideoTransport::read(ByteReader& r) {
     return r.ok();
 }
 
+void WindowList::write(ByteWriter& w) const {
+    const size_t n = std::min(windows.size(), kMaxWindows);
+    w.u16(static_cast<uint16_t>(n));
+    for (size_t i = 0; i < n; ++i) {
+        const auto& x = windows[i];
+        w.u64(x.id);
+        w.str(x.title);
+        w.str(x.app);
+        w.u8(x.flags);
+        const bool icon = x.icon_size && x.icon.size() == size_t{x.icon_size} * x.icon_size * 4;
+        w.u16(icon ? x.icon_size : 0);
+        w.blob(icon ? std::span<const uint8_t>(x.icon) : std::span<const uint8_t>());
+    }
+}
+bool WindowList::read(ByteReader& r) {
+    const uint16_t n = r.u16();
+    if (n > kMaxWindows) return false;
+    windows.resize(n);
+    for (auto& x : windows) {
+        x.id = r.u64();
+        x.title = r.str();
+        x.app = r.str();
+        x.flags = r.u8();
+        x.icon_size = r.u16();
+        x.icon = r.blob();
+        if (!r.ok()) return false;
+        if (x.icon.size() != size_t{x.icon_size} * x.icon_size * 4) {
+            x.icon_size = 0;
+            x.icon.clear();
+        }
+    }
+    return r.ok();
+}
+
+void MoveWindow::write(ByteWriter& w) const {
+    w.u64(id);
+    w.u8(static_cast<uint8_t>(target));
+}
+bool MoveWindow::read(ByteReader& r) {
+    id = r.u64();
+    target = static_cast<WindowTarget>(r.u8());
+    return r.ok() && (target == WindowTarget::Here || target == WindowTarget::Back);
+}
+
+void MoveWindowResult::write(ByteWriter& w) const {
+    w.u8(static_cast<uint8_t>(result));
+    w.u8(static_cast<uint8_t>(target));
+    w.str(title);
+}
+bool MoveWindowResult::read(ByteReader& r) {
+    result = static_cast<MoveResult>(r.u8());
+    target = static_cast<WindowTarget>(r.u8());
+    title = r.str();
+    return r.ok();
+}
+
 // ---------------------------------------------------------------- FrameParser
 
 void FrameParser::feed(const uint8_t* data, size_t n) {
@@ -323,6 +381,10 @@ const char* to_string(MsgType t) {
         case MsgType::VideoTransport: return "VideoTransport";
         case MsgType::UdpFallback: return "UdpFallback";
         case MsgType::InvalidateFrames: return "InvalidateFrames";
+        case MsgType::WindowListRequest: return "WindowListRequest";
+        case MsgType::WindowList: return "WindowList";
+        case MsgType::MoveWindow: return "MoveWindow";
+        case MsgType::MoveWindowResult: return "MoveWindowResult";
     }
     return "Unknown";
 }

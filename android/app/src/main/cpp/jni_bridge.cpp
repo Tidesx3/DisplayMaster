@@ -3,6 +3,7 @@
 #include <jni.h>
 
 #include <memory>
+#include <vector>
 #include <string>
 
 #include "client.h"
@@ -53,10 +54,17 @@ public:
         on_stats_ = env->GetMethodID(cls, "onNativeStats", "(FFFFIZI)V");
         is_known_pc_ = env->GetMethodID(cls, "isNativeKnownPc", "(Ljava/lang/String;)Z");
         on_pairing_ = env->GetMethodID(cls, "onNativePairing", "(Ljava/lang/String;Ljava/lang/String;)V");
+        on_features_ = env->GetMethodID(cls, "onNativeHostFeatures", "(I)V");
+        on_windows_ = env->GetMethodID(cls, "onNativeWindowList", "([J[Ljava/lang/String;[Ljava/lang/String;[I[I[[B)V");
+        on_move_ = env->GetMethodID(cls, "onNativeMoveResult", "(IILjava/lang/String;)V");
+        string_class_ = static_cast<jclass>(env->NewGlobalRef(env->FindClass("java/lang/String")));
+        bytes_class_ = static_cast<jclass>(env->NewGlobalRef(env->FindClass("[B")));
     }
     ~JavaListener() override {
         JniEnv env;
         env->DeleteGlobalRef(obj_);
+        env->DeleteGlobalRef(string_class_);
+        env->DeleteGlobalRef(bytes_class_);
     }
 
     void on_state(State s, const std::string& message) override {
@@ -93,9 +101,89 @@ public:
         env->DeleteLocalRef(key);
     }
 
+    void on_host_features(uint32_t features) override {
+        JniEnv env;
+        env->CallVoidMethod(obj_, on_features_, static_cast<jint>(features));
+    }
+
+    void on_window_list(const proto::WindowList& list) override {
+        JniEnv env;
+        const auto n = static_cast<jsize>(list.windows.size());
+        std::vector<jlong> ids(list.windows.size());
+        std::vector<jint> flags(list.windows.size()), sizes(list.windows.size());
+        jobjectArray titles = env->NewObjectArray(n, string_class_, nullptr);
+        jobjectArray apps = env->NewObjectArray(n, string_class_, nullptr);
+        jobjectArray icons = env->NewObjectArray(n, bytes_class_, nullptr);
+        for (jsize i = 0; i < n; ++i) {
+            const auto& w = list.windows[static_cast<size_t>(i)];
+            ids[i] = static_cast<jlong>(w.id);
+            flags[i] = w.flags;
+            sizes[i] = w.icon_size;
+            set_string(env.get(), titles, i, w.title);
+            set_string(env.get(), apps, i, w.app);
+            if (!w.icon.empty()) {
+                jbyteArray icon = env->NewByteArray(static_cast<jsize>(w.icon.size()));
+                env->SetByteArrayRegion(icon, 0, static_cast<jsize>(w.icon.size()),
+                                        reinterpret_cast<const jbyte*>(w.icon.data()));
+                env->SetObjectArrayElement(icons, i, icon);
+                env->DeleteLocalRef(icon);
+            }
+        }
+        jlongArray id_arr = env->NewLongArray(n);
+        env->SetLongArrayRegion(id_arr, 0, n, ids.data());
+        jintArray flag_arr = env->NewIntArray(n);
+        env->SetIntArrayRegion(flag_arr, 0, n, flags.data());
+        jintArray size_arr = env->NewIntArray(n);
+        env->SetIntArrayRegion(size_arr, 0, n, sizes.data());
+        env->CallVoidMethod(obj_, on_windows_, id_arr, titles, apps, flag_arr, size_arr, icons);
+        for (jobject o : {static_cast<jobject>(id_arr), static_cast<jobject>(titles), static_cast<jobject>(apps),
+                          static_cast<jobject>(flag_arr), static_cast<jobject>(size_arr), static_cast<jobject>(icons)})
+            env->DeleteLocalRef(o);
+    }
+
+    void on_move_result(const proto::MoveWindowResult& r) override {
+        JniEnv env;
+        jstring title = new_string(env.get(), r.title);
+        env->CallVoidMethod(obj_, on_move_, static_cast<jint>(r.result), static_cast<jint>(r.target), title);
+        env->DeleteLocalRef(title);
+    }
+
 private:
+    // Window titles are arbitrary UTF-8; NewStringUTF wants modified UTF-8 and aborts on
+    // 4-byte sequences (emoji), so strings go through UTF-16.
+    static jstring new_string(JNIEnv* env, const std::string& s) {
+        std::u16string u;
+        u.reserve(s.size());
+        for (size_t i = 0; i < s.size();) {
+            const auto c = static_cast<unsigned char>(s[i]);
+            const int len = c < 0x80 ? 1 : (c >> 5) == 6 ? 2 : (c >> 4) == 14 ? 3 : (c >> 3) == 30 ? 4 : 0;
+            if (!len || i + len > s.size()) {  // invalid: replacement character
+                u.push_back(char16_t{0xFFFD});
+                ++i;
+                continue;
+            }
+            uint32_t cp = len == 1 ? c : c & (0x7F >> len);
+            for (int k = 1; k < len; ++k) cp = (cp << 6) | (static_cast<unsigned char>(s[i + k]) & 0x3F);
+            if (cp >= 0x10000) {
+                cp -= 0x10000;
+                u.push_back(static_cast<char16_t>(0xD800 + (cp >> 10)));
+                u.push_back(static_cast<char16_t>(0xDC00 + (cp & 0x3FF)));
+            } else {
+                u.push_back(static_cast<char16_t>(cp));
+            }
+            i += static_cast<size_t>(len);
+        }
+        return env->NewString(reinterpret_cast<const jchar*>(u.data()), static_cast<jsize>(u.size()));
+    }
+    static void set_string(JNIEnv* env, jobjectArray arr, jsize i, const std::string& s) {
+        jstring j = new_string(env, s);
+        env->SetObjectArrayElement(arr, i, j);
+        env->DeleteLocalRef(j);
+    }
+
     jobject obj_;
-    jmethodID on_state_, on_config_, on_stats_, is_known_pc_, on_pairing_;
+    jmethodID on_state_, on_config_, on_stats_, is_known_pc_, on_pairing_, on_features_, on_windows_, on_move_;
+    jclass string_class_, bytes_class_;
 };
 
 struct Handle {
@@ -276,6 +364,19 @@ JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeSendSett
     s.bitrate_kbps = static_cast<uint32_t>(bitrate_kbps);
     s.preferred_codec = static_cast<proto::Codec>(codec);
     client_of(h)->send(s);
+}
+
+}  // extern "C"
+
+extern "C" {
+
+JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeRequestWindows(JNIEnv*, jobject, jlong h) {
+    client_of(h)->send(proto::WindowListRequest{});
+}
+
+JNIEXPORT void JNICALL Java_com_displaymaster_client_NativeClient_nativeMoveWindow(JNIEnv*, jobject, jlong h, jlong id,
+                                                                                   jint target) {
+    client_of(h)->send(proto::MoveWindow{static_cast<uint64_t>(id), static_cast<proto::WindowTarget>(target)});
 }
 
 }  // extern "C"

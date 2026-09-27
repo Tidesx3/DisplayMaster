@@ -16,6 +16,7 @@
 | `{"cmd":"set_wifi","enabled":true}` | `{"ok":true}` — rebinds the listener (0.0.0.0 vs 127.0.0.1), toggles mDNS, persists the choice |
 | `{"cmd":"approve","id":N,"allow":true,"remember":true}` | `{"ok":true}` or `{"ok":false,"error":"no such request"}` |
 | `{"cmd":"forget_device","device_id":"…"}` | `{"ok":true}` |
+| `{"cmd":"set_window_hotkey","enabled":true}` | `{"ok":true}` or `{"ok":false,"error":"shortcut in use by another app"}` — Ctrl+Alt+Win+→ sends the active window to the extending devices in turn, then back; persisted |
 | `{"cmd":"shutdown"}` | `{"ok":true}`, then the engine exits |
 
 Unknown commands return `{"ok":false,"error":"unknown command"}`.
@@ -28,6 +29,7 @@ Unknown commands return `{"ok":false,"error":"unknown command"}`.
   "host": {
     "name": "MICHI-PC", "port": 47800, "wifi": false, "elevated": true,
     "vdd": true, "adb": true,
+    "window_hotkey": true, "window_hotkey_active": true,
     "addresses": ["192.168.0.101"],
     "adb_ready": ["R52R30ABCDE"], "adb_unauthorized": []
   },

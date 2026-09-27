@@ -26,7 +26,17 @@ data class UiState(
     val pairingCode: String = "",           // Wi-Fi: same code on both screens
     val confirmOnDevice: Boolean = false,   // new PC: the user must confirm the code here too
     val reconnecting: Int = 0,              // > 0: the connection dropped, this is the retry number
-)
+    val hostFeatures: Int = 0,              // Proto.FEATURE_* the PC offers
+) {
+    /** Windows can be pulled onto this screen: the PC supports it and the device extends it. */
+    val canMoveWindows get() = hostFeatures and Proto.FEATURE_WINDOWS != 0 && video?.mode == DisplayMode.Extend
+}
+
+/** The window picker: open while non-null. */
+data class WindowSheet(val loading: Boolean = true, val windows: List<PcWindow> = emptyList())
+
+/** What happened to the last window move, shown briefly; [seq] tells repeats apart. */
+data class MoveNotice(val result: MoveResult, val seq: Long)
 
 data class Settings(
     val displayMode: DisplayMode = DisplayMode.Extend,
@@ -52,6 +62,13 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
 
     private val _recents = MutableStateFlow(loadRecents())
     val recents: StateFlow<List<RecentHost>> = _recents.asStateFlow()
+
+    private val _windowSheet = MutableStateFlow<WindowSheet?>(null)
+    val windowSheet: StateFlow<WindowSheet?> = _windowSheet.asStateFlow()
+
+    private val _moveNotice = MutableStateFlow<MoveNotice?>(null)
+    val moveNotice: StateFlow<MoveNotice?> = _moveNotice.asStateFlow()
+    private var noticeSeq = 0L
 
     val client = NativeClient(this)
     val discovery = PcDiscovery(app)
@@ -80,6 +97,7 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
         if (retry == 0) reconnectJob?.cancel()
         autoAttempt = auto
         lastTarget = Triple(address, port, hello.transport)
+        _windowSheet.value = null
         val usb = hello.transport == Proto.TRANSPORT_USB_ADB
         val hostName = if (retry > 0) _state.value.hostName else ""
         _state.value = UiState(phase = Phase.Connecting, target = if (usb) "USB" else address, usb = usb,
@@ -130,6 +148,24 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
 
     fun dismissError() = _state.update { UiState() }
 
+    // --- moving PC windows onto this screen ---
+
+    fun openWindows() {
+        _windowSheet.value = WindowSheet()
+        client.requestWindows()
+    }
+
+    fun closeWindows() {
+        _windowSheet.value = null
+    }
+
+    /** [id] 0: the window used last on the PC's other screens. */
+    fun pullWindow(id: Long = 0) = client.moveWindow(id, Proto.TARGET_HERE)
+
+    fun sendWindowBack(id: Long) = client.moveWindow(id, Proto.TARGET_BACK)
+
+    fun clearMoveNotice(notice: MoveNotice) = _moveNotice.update { if (it == notice) null else it }
+
     fun updateSettings(transform: (Settings) -> Settings) {
         val s = transform(_settings.value)
         _settings.value = s
@@ -164,8 +200,12 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
                 if (!_state.value.usb) rememberHost(_state.value.target, message)
             }
             NativeClient.State.Streaming -> _state.update { it.copy(phase = Phase.Streaming, reconnecting = 0, message = "") }
-            NativeClient.State.Disconnected -> _state.value = UiState()
+            NativeClient.State.Disconnected -> {
+                _windowSheet.value = null
+                _state.value = UiState()
+            }
             NativeClient.State.Error -> {
+                _windowSheet.value = null
                 val s = _state.value
                 when {
                     // Auto-connect found nothing to do (e.g. an unknown PC): stay quiet.
@@ -182,6 +222,17 @@ class ConnectionViewModel(app: Application) : AndroidViewModel(app), NativeClien
     }
 
     override fun onVideoConfig(config: VideoConfig) = _state.update { it.copy(video = config) }
+
+    override fun onHostFeatures(features: Int) = _state.update { it.copy(hostFeatures = features) }
+
+    override fun onWindowList(windows: List<PcWindow>) =
+        _windowSheet.update { it?.copy(loading = false, windows = windows) }
+
+    override fun onMoveResult(result: MoveResult) {
+        _moveNotice.value = MoveNotice(result, ++noticeSeq)
+        // The picker shows where every window is: refresh it.
+        if (_windowSheet.value != null) client.requestWindows()
+    }
 
     override fun onStats(stats: StreamStats) = _state.update { it.copy(stats = stats) }
 

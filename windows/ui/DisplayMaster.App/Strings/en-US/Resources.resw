@@ -439,4 +439,13 @@
   <data name="Update_Failed" xml:space="preserve">
     <value>Update failed: {0}</value>
   </data>
+  <data name="SettingsPage_23.Text" xml:space="preserve">
+    <value>Send windows to your device</value>
+  </data>
+  <data name="SettingsPage_24.Text" xml:space="preserve">
+    <value>Ctrl + Alt + Win + → moves the active window to a connected device, then on to the next one, then back. Devices can also pull windows over from their shortcut bar.</value>
+  </data>
+  <data name="SettingsPage_25.Message" xml:space="preserve">
+    <value>Another app already uses Ctrl + Alt + Win + →, so the shortcut is off. Close that app and switch this off and on again.</value>
+  </data>
 </root>

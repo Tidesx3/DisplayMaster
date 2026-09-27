@@ -47,6 +47,12 @@ enum class MsgType : uint8_t {
 
     ClientStats = 30,  // client -> host, periodic
 
+    // Moving PC windows onto the device's screen (extend mode; see HostFeatures).
+    WindowListRequest = 50,  // client -> host
+    WindowList = 51,         // host -> client, reply to WindowListRequest
+    MoveWindow = 52,         // client -> host
+    MoveWindowResult = 53,   // host -> client, reply to MoveWindow
+
     // Wi-Fi only (see dm/noise.h): three Noise handshake messages, then every frame
     // travels sealed inside an Encrypted frame. USB (adb) stays plain.
     Handshake = 40,
@@ -138,6 +144,11 @@ struct Hello {
     bool read(ByteReader& r);
 };
 
+// What the PC offers beyond streaming and input (Welcome.features).
+enum HostFeatures : uint32_t {
+    kFeatureWindows = 1u << 0,  // WindowListRequest / MoveWindow
+};
+
 struct Welcome {
     static constexpr MsgType kType = MsgType::Welcome;
     uint16_t version = kVersion;
@@ -145,6 +156,7 @@ struct Welcome {
     std::string reason;  // set when !accepted
     std::string host_name;
     uint32_t session_id = 0;
+    uint32_t features = 0;  // HostFeatures; optional trailing field (older engines omit it)
 
     void write(ByteWriter& w) const;
     bool read(ByteReader& r);
@@ -342,6 +354,75 @@ struct ClientStats {
     // UDP video (trailing, optional): frames lost for good, data shards rebuilt from parity.
     uint32_t udp_lost_frames = 0;
     uint32_t udp_recovered_shards = 0;
+
+    void write(ByteWriter& w) const;
+    bool read(ByteReader& r);
+};
+
+// ---------------------------------------------------------------- windows
+
+enum WindowFlags : uint8_t {
+    kWindowHere = 1u << 0,       // already on this device's screen
+    kWindowMinimized = 1u << 1,
+    kWindowMaximized = 1u << 2,
+};
+
+struct WindowInfo {
+    uint64_t id = 0;    // the PC's window handle; only meaningful to the PC
+    std::string title;
+    std::string app;    // e.g. "Firefox"
+    uint8_t flags = 0;  // WindowFlags
+    // Square icon, icon_size x icon_size RGBA pixels (straight alpha, rows top to bottom).
+    // Empty when the PC found none.
+    uint16_t icon_size = 0;
+    std::vector<uint8_t> icon;
+};
+
+struct WindowListRequest {
+    static constexpr MsgType kType = MsgType::WindowListRequest;
+    void write(ByteWriter&) const {}
+    bool read(ByteReader&) { return true; }
+};
+
+// The windows a user could switch to (as in Alt+Tab), most recently used first.
+struct WindowList {
+    static constexpr MsgType kType = MsgType::WindowList;
+    static constexpr size_t kMaxWindows = 64;
+    std::vector<WindowInfo> windows;
+
+    void write(ByteWriter& w) const;
+    bool read(ByteReader& r);
+};
+
+enum class WindowTarget : uint8_t {
+    Here = 0,  // onto this device's screen
+    Back = 1,  // off it: back where it came from, or onto the PC's main screen
+};
+
+struct MoveWindow {
+    static constexpr MsgType kType = MsgType::MoveWindow;
+    uint64_t id = 0;  // WindowInfo.id; 0 == the window used last on another screen
+    WindowTarget target = WindowTarget::Here;
+
+    void write(ByteWriter& w) const;
+    bool read(ByteReader& r);
+};
+
+enum class MoveResult : uint8_t {
+    Moved = 0,
+    NothingToMove = 1,  // id 0, but no window on the other screens
+    Gone = 2,           // the window was closed in the meantime
+    Denied = 3,         // belongs to an administrator app and the engine isn't elevated
+    NotResponding = 4,  // the app hangs
+    NotExtended = 5,    // this device mirrors the PC: there is no screen to move to
+    Failed = 6,
+};
+
+struct MoveWindowResult {
+    static constexpr MsgType kType = MsgType::MoveWindowResult;
+    MoveResult result = MoveResult::Moved;
+    WindowTarget target = WindowTarget::Here;
+    std::string title;  // the window's title, when there was one
 
     void write(ByteWriter& w) const;
     bool read(ByteReader& r);

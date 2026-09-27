@@ -22,6 +22,8 @@
 
 namespace dm {
 
+class WindowMover;
+
 struct HostOptions {
     uint16_t port = proto::kDefaultPort;
     std::optional<bool> allow_wifi;     // unset: use the saved setting (default off)
@@ -39,6 +41,8 @@ struct HostOptions {
     // Saved screen position for a device (by its device id); set by the Host.
     std::function<Placement(const std::string& device_id)> placement_for;
     PressureCurve pen_curve;            // shaping applied to pen pressure
+    // Moves PC windows onto the device's screen (set by the Host; null: no such feature).
+    WindowMover* windows = nullptr;
     // Automated tests: own data folder and control pipe, local connections count as
     // Wi-Fi (encrypted, need approval) and new pairings are approved automatically.
     bool test_mode = false;
@@ -103,6 +107,8 @@ private:
     std::optional<std::pair<uint32_t, uint32_t>> take_invalidate();
     void handle(const proto::RawMessage& m);
     bool log_input(const proto::RawMessage& m);
+    // WindowListRequest / MoveWindow from the device.
+    void handle_windows(const proto::RawMessage& m);
     bool setup_pipeline(class VideoPipeline& pipe);
     std::vector<proto::Codec> codec_order() const;
     proto::DisplayMode effective_mode(proto::DisplayMode requested) const;

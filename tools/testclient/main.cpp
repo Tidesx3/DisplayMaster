@@ -8,11 +8,14 @@
 //   second run is recognized as an already paired device.
 //   --udp (with --secure): video over UDP like Wi-Fi; --loss drops N % of the datagrams at
 //   random (parity must repair most), --udp-blocked drops all (must fall back to TCP).
+//   --windows: also asks for the PC's window list and to pull the last used window here
+//   (run the engine with --no-input: it answers without moving anything).
 //
 // Exit code 0 when every client passed.
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cstdio>
@@ -46,6 +49,7 @@ struct Options {
     int loss_percent = 0;
     bool udp_blocked = false;
     bool rfi = true;  // announce recovery-frame support (like the app); --no-rfi: keyframes only
+    bool windows = false;
 };
 
 struct Result {
@@ -55,6 +59,11 @@ struct Result {
     uint64_t frames = 0, keyframes = 0, bytes = 0;
     double rtt_ms = 0;
     bool first_is_key = false, annexb_ok = true, keyframe_on_request = false;
+    // --windows
+    bool windows_feature = false;
+    int window_count = -1, window_icons = 0, windows_here = 0;
+    std::vector<std::string> window_apps;  // program names only: titles can be private
+    int move_result = -1;
     std::string pairing_code;  // secure connections
     bool approval_requested = false;
     // UDP video
@@ -320,14 +329,32 @@ Result run_client(const Options& o, int index) {
                         return r;
                     }
                     welcomed = true;
+                    r.windows_feature = (w->features & proto::kFeatureWindows) != 0;
                     break;
                 }
                 case proto::MsgType::VideoConfig:
                     if (auto c = proto::decode<proto::VideoConfig>(msg.payload)) {
                         r.config = *c;
+                        if (o.windows && !configured) send_msg(proto::encode(proto::WindowListRequest{}));
                         configured = true;
                         config_at = Clock::now();
                     }
+                    break;
+                case proto::MsgType::WindowList:
+                    if (auto l = proto::decode<proto::WindowList>(msg.payload)) {
+                        r.window_count = static_cast<int>(l->windows.size());
+                        for (const auto& x : l->windows) {
+                            r.window_icons += !x.icon.empty();
+                            r.windows_here += (x.flags & proto::kWindowHere) != 0;
+                            if (std::find(r.window_apps.begin(), r.window_apps.end(), x.app) == r.window_apps.end())
+                                r.window_apps.push_back(x.app);
+                        }
+                        send_msg(proto::encode(proto::MoveWindow{0, proto::WindowTarget::Here}));
+                    }
+                    break;
+                case proto::MsgType::MoveWindowResult:
+                    if (auto m = proto::decode<proto::MoveWindowResult>(msg.payload))
+                        r.move_result = static_cast<int>(m->result);
                     break;
                 case proto::MsgType::VideoFrame:
                     if (auto f = proto::decode<proto::VideoFrame>(msg.payload)) on_frame(*f);
@@ -369,6 +396,9 @@ Result run_client(const Options& o, int index) {
         else if (o.udp_blocked && !r.fell_back) r.error = "no fallback to TCP";
         else if (!r.annexb_ok) r.error = "bitstream is not Annex B";
         else if (requested_key && !r.keyframe_on_request) r.error = "RequestKeyframe was not answered";
+        else if (o.windows && !r.windows_feature) r.error = "engine doesn't offer moving windows";
+        else if (o.windows && r.window_count < 0) r.error = "no WindowList";
+        else if (o.windows && r.move_result < 0) r.error = "MoveWindow was not answered";
     }
     r.ok = r.error.empty();
     return r;
@@ -406,6 +436,8 @@ int main(int argc, char** argv) {
             o.udp_blocked = true;
         } else if (a == "--no-rfi") {
             o.rfi = false;
+        } else if (a == "--windows") {
+            o.windows = true;
         }
     }
     WSADATA wsa;
@@ -429,6 +461,14 @@ int main(int argc, char** argv) {
                    "client %zu: losses repaired by %llu recovery frames, %llu keyframes\n",
                    i + 1, r.udp_frames, r.udp_lost, r.udp_recovered, r.udp_dropped_by_test,
                    r.fell_back ? ", fell back to TCP" : "", i + 1, r.recoveries, r.key_repairs);
+        if (o.windows) {
+            static const char* kResults[] = {"moved", "nothing to move", "gone", "denied", "not responding", "not extended", "failed"};
+            std::string apps;
+            for (const auto& a : r.window_apps) apps += (apps.empty() ? "" : ", ") + a;
+            printf("client %zu: windows: %d listed (%d with icon, %d here), apps: %s; pull last window: %s\n", i + 1,
+                   r.window_count, r.window_icons, r.windows_here, apps.c_str(),
+                   r.move_result >= 0 && r.move_result < 7 ? kResults[r.move_result] : "no answer");
+        }
         if (!r.pairing_code.empty())
             printf("client %zu: encrypted, pairing code %s%s\n", i + 1, r.pairing_code.c_str(),
                    r.approval_requested ? "" : ", already paired");

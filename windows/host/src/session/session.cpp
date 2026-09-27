@@ -8,6 +8,7 @@
 #include "core/win.h"
 #include "session/video_pipeline.h"
 #include "transport/apk_server.h"
+#include "window/window_mover.h"
 
 namespace dm {
 
@@ -179,6 +180,7 @@ bool Session::handle_hello(const proto::Hello& h) {
     GetComputerNameW(host, &len);
     w.host_name = to_utf8(host);
     w.session_id = id_;
+    if (opts_.windows) w.features |= proto::kFeatureWindows;
 
     if (h.version != proto::kVersion) {
         w.reason = "Protocol version mismatch - update the app on both devices";
@@ -326,9 +328,36 @@ void Session::handle(const proto::RawMessage& m) {
                 status_.udp = false;
             }
             break;
+        case MsgType::WindowListRequest:
+        case MsgType::MoveWindow: handle_windows(m); break;
         case MsgType::Bye: running_ = false; conn_->close(); break;
         default: break;
     }
+}
+
+void Session::handle_windows(const proto::RawMessage& m) {
+    if (!opts_.windows) return;
+    RectI screen;  // this device's screen; empty unless it extends the desktop
+    {
+        std::lock_guard lock(status_mu_);
+        if (status_.streaming && status_.mode == proto::DisplayMode::Extend) screen = status_.monitor_rect;
+    }
+    if (m.header.type == proto::MsgType::WindowListRequest) {
+        proto::WindowList list;
+        list.windows = opts_.windows->list(screen);
+        send(list);
+        return;
+    }
+    auto mv = proto::decode<proto::MoveWindow>(m.payload);
+    if (!mv) return;
+    proto::MoveWindowResult r;
+    if (screen.w > 0) {
+        r = opts_.windows->move(*mv, screen, !opts_.inject_input);
+    } else {
+        r.result = proto::MoveResult::NotExtended;
+        r.target = mv->target;
+    }
+    send(r);
 }
 
 // The host can force a mode; extend needs the virtual display driver.

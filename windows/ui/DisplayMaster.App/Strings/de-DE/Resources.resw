@@ -439,4 +439,13 @@
   <data name="Update_Failed" xml:space="preserve">
     <value>Update fehlgeschlagen: {0}</value>
   </data>
+  <data name="SettingsPage_23.Text" xml:space="preserve">
+    <value>Fenster auf dein Gerät schicken</value>
+  </data>
+  <data name="SettingsPage_24.Text" xml:space="preserve">
+    <value>Strg + Alt + Win + → schiebt das aktive Fenster auf ein verbundenes Gerät, dann weiter zum nächsten und wieder zurück. Geräte können Fenster auch über ihre Tastenleiste herholen.</value>
+  </data>
+  <data name="SettingsPage_25.Message" xml:space="preserve">
+    <value>Eine andere App nutzt Strg + Alt + Win + → bereits, deshalb ist das Tastenkürzel aus. Schließe diese App und schalte die Option aus und wieder ein.</value>
+  </data>
 </root>

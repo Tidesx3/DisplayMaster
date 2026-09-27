@@ -19,7 +19,8 @@ public sealed record TrustedDevice(string DeviceId, string Name);
 public sealed record HostInfo(
     string Name, int Port, bool Wifi, bool Elevated, bool Vdd, bool Adb,
     List<string> Addresses, List<string> AdbReady, List<string> AdbUnauthorized, PenCurve? Pen,
-    string? ApkPath = null, StreamSettings? Stream = null);
+    string? ApkPath = null, StreamSettings? Stream = null,
+    bool WindowHotkey = true, bool WindowHotkeyActive = false);
 
 /// <summary>Picture settings. BitrateKbps 0 = automatic; Locked = set by engine command-line flags.</summary>
 public sealed record StreamSettings(string Codec, int BitrateKbps, int MaxFps, double Scale, bool Locked);
@@ -59,6 +60,10 @@ public sealed class HostClient : IDisposable
     }
 
     public Task DisconnectAsync(int sessionId) => RequestAsync($"{{\"cmd\":\"disconnect\",\"id\":{sessionId}}}");
+
+    /// <summary>Ctrl+Alt+Win+Right sends the active window to the devices in turn.</summary>
+    public Task SetWindowHotkeyAsync(bool enabled) =>
+        RequestAsync($"{{\"cmd\":\"set_window_hotkey\",\"enabled\":{(enabled ? "true" : "false")}}}");
 
     public Task SetWifiAsync(bool enabled) =>
         RequestAsync($"{{\"cmd\":\"set_wifi\",\"enabled\":{(enabled ? "true" : "false")}}}");

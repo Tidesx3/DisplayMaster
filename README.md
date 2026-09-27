@@ -134,6 +134,7 @@ Other flags: `--mode extend|mirror`, `--codec h264|hevc|av1`, `--encoder nvenc|a
 | Tray menu with devices, connect/disconnect notifications, rotation lock, German translation (both apps) | ✅ |
 | Shortcut bar for drawing apps (undo/redo, Ctrl/Shift/Alt/Space hold or latch, brush size, zoom, Esc) | ✅ keys verified in the engine's input log |
 | Settings page: bitrate, frame-rate cap, resolution, video format, start at sign-in | ✅ |
+| Move PC windows onto the device: one tap pulls the last used window, a picker lists all (icons, send back); Ctrl+Alt+Win+→ on the PC sends the active window to the devices in turn | ✅ moves verified on two real screens (normal, maximized, minimized); ⏳ on a device |
 | Wintab driver, pen button remapping | ⏳ planned (M7) |
 
 ## Testing

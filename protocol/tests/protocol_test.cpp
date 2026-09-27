@@ -281,3 +281,68 @@ TEST(Protocol, ClientStatsUdpFieldsAreOptional) {
     EXPECT_EQ(got->frames_decoded, 60u);
     EXPECT_EQ(got->udp_lost_frames, 0u);
 }
+
+TEST(Protocol, WelcomeFeaturesAreOptional) {
+    Welcome w;
+    w.accepted = true;
+    w.host_name = "Desk";
+    w.features = kFeatureWindows;
+    auto frame = encode(w);
+    auto got = decode<Welcome>(std::span<const uint8_t>(frame).subspan(kHeaderSize));
+    ASSERT_TRUE(got);
+    EXPECT_EQ(got->features, kFeatureWindows);
+    // An engine from before the field.
+    got = decode<Welcome>(std::span<const uint8_t>(frame).subspan(kHeaderSize, frame.size() - kHeaderSize - 4));
+    ASSERT_TRUE(got);
+    EXPECT_EQ(got->features, 0u);
+    EXPECT_EQ(got->host_name, "Desk");
+}
+
+TEST(Protocol, WindowListRoundtrip) {
+    WindowList l;
+    WindowInfo a;
+    a.id = 0x1234'5678'9abcull;
+    a.title = "Untitled - Notepad";
+    a.app = "Notepad";
+    a.flags = kWindowHere | kWindowMaximized;
+    a.icon_size = 2;
+    a.icon = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+    WindowInfo b;
+    b.id = 7;
+    b.title = "No icon";
+    b.icon_size = 4;  // size without pixels: sent as no icon
+    l.windows = {a, b};
+    const auto got = roundtrip(l);
+    ASSERT_EQ(got.windows.size(), 2u);
+    EXPECT_EQ(got.windows[0].id, a.id);
+    EXPECT_EQ(got.windows[0].title, a.title);
+    EXPECT_EQ(got.windows[0].app, a.app);
+    EXPECT_EQ(got.windows[0].flags, a.flags);
+    EXPECT_EQ(got.windows[0].icon_size, 2);
+    EXPECT_EQ(got.windows[0].icon, a.icon);
+    EXPECT_EQ(got.windows[1].icon_size, 0);
+    EXPECT_TRUE(got.windows[1].icon.empty());
+}
+
+TEST(Protocol, WindowListIsCapped) {
+    WindowList l;
+    l.windows.resize(WindowList::kMaxWindows + 10);
+    EXPECT_EQ(roundtrip(l).windows.size(), WindowList::kMaxWindows);
+    // A peer claiming more is rejected.
+    std::vector<uint8_t> payload{0xff, 0xff};
+    EXPECT_FALSE(decode<WindowList>(payload));
+}
+
+TEST(Protocol, MoveWindowRoundtrip) {
+    const auto m = roundtrip(MoveWindow{42, WindowTarget::Back});
+    EXPECT_EQ(m.id, 42u);
+    EXPECT_EQ(m.target, WindowTarget::Back);
+    std::vector<uint8_t> bad(9, 0);
+    bad[8] = 9;  // unknown target
+    EXPECT_FALSE(decode<MoveWindow>(bad));
+
+    const auto r = roundtrip(MoveWindowResult{MoveResult::Denied, WindowTarget::Here, "Task Manager"});
+    EXPECT_EQ(r.result, MoveResult::Denied);
+    EXPECT_EQ(r.target, WindowTarget::Here);
+    EXPECT_EQ(r.title, "Task Manager");
+}

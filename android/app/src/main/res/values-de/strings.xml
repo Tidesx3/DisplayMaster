@@ -93,4 +93,25 @@
     <string name="key_shift">Umschalt</string>
     <string name="key_alt">Alt</string>
     <string name="key_space">Leertaste</string>
+
+    <!-- Fenster vom PC auf diesen Bildschirm holen -->
+    <string name="sc_window">Fenster</string>
+    <string name="pull_window">Fenster herholen</string>
+    <string name="choose_window">Auswählen…</string>
+    <string name="windows_title">Fenster auf deinem PC</string>
+    <string name="windows_hint">Tippe auf ein Fenster, um es auf diesen Bildschirm zu holen</string>
+    <string name="windows_elsewhere">Auf anderen Bildschirmen</string>
+    <string name="windows_here">Auf diesem Bildschirm</string>
+    <string name="windows_none">Keine weiteren Fenster geöffnet</string>
+    <string name="window_minimized">minimiert</string>
+    <string name="send_back">Zurückschicken</string>
+    <string name="windows_tip">Am PC schickt Strg+Alt+Win+→ das aktive Fenster hierher</string>
+    <string name="move_here">„%1$s“ hierher geholt</string>
+    <string name="move_back">„%1$s“ zurückgeschickt</string>
+    <string name="move_nothing">Kein Fenster auf den anderen Bildschirmen</string>
+    <string name="move_gone">Das Fenster wurde geschlossen</string>
+    <string name="move_denied">Administrator-Fenster lassen sich nur verschieben, wenn DisplayMaster als Administrator läuft</string>
+    <string name="move_not_responding">„%1$s“ reagiert nicht</string>
+    <string name="move_not_extended">Fenster verschieben geht nur im Modus Erweitern</string>
+    <string name="move_failed">Das Fenster ließ sich nicht verschieben</string>
 </resources>
