@@ -178,7 +178,10 @@ int wmain(int argc, wchar_t** argv) {
     g_quit = CreateEventW(nullptr, TRUE, FALSE, nullptr);
     SetConsoleCtrlHandler(on_ctrl, TRUE);
 
-    DM_LOGI("DisplayMaster host starting (Ctrl+C to quit)");
+    SYSTEMTIME today;
+    GetLocalTime(&today);  // log lines only carry the time of day
+    DM_LOGI("DisplayMaster %s host starting on %04d-%02d-%02d (Ctrl+C to quit)", DM_VERSION, today.wYear, today.wMonth,
+            today.wDay);
     if (!is_elevated())
         DM_LOGW("Not elevated: input won't reach admin windows and virtual monitor settings may be read-only");
     Host host(opts);

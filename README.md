@@ -94,6 +94,11 @@ silently (one admin prompt). Devices plugged in over USB then get the matching A
 On the device: swipe in from the right edge (or press Back) for the quick panel — display mode,
 finger input mode (Touch / Mouse / Trackpad), keyboard, performance overlay, disconnect.
 
+**Reporting a problem:** Settings → *Export logs* puts `DisplayMaster-logs-<date>.txt` on the
+desktop: PC and graphics driver info, monitors, recent GPU resets from the Windows event log,
+settings and the end of the engine log. It has device names and IP addresses, but no keys and
+nothing from the screen. If the app won't open, `DisplayMaster.exe --export-logs` writes the same file.
+
 ### Engine command line (diagnostics)
 The engine has no console window of its own; from PowerShell, pipe into `Out-Host` so the prompt
 waits for the output.

@@ -30,8 +30,15 @@ void init(const std::wstring& file_path, Level min_level) {
     g_min = min_level;
     if (g_file) fclose(g_file);
     if (!file_path.empty()) {
+        const std::filesystem::path path(file_path);
         std::error_code ec;
-        std::filesystem::create_directories(std::filesystem::path(file_path).parent_path(), ec);
+        std::filesystem::create_directories(path.parent_path(), ec);
+        // Keep the file small enough to attach to a bug report: the previous 4 MB stay as *.old.log.
+        if (std::filesystem::file_size(path, ec) > 4 * 1024 * 1024 && !ec) {
+            auto old = path;
+            old.replace_extension(L".old.log");
+            std::filesystem::rename(path, old, ec);
+        }
     }
     g_file = file_path.empty() ? nullptr : _wfsopen(file_path.c_str(), L"a", _SH_DENYWR);
 }

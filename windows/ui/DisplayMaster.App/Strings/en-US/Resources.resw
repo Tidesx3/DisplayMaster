@@ -448,4 +448,13 @@
   <data name="SettingsPage_25.Message" xml:space="preserve">
     <value>Another app already uses Ctrl + Alt + Win + →, so the shortcut is off. Close that app and switch this off and on again.</value>
   </data>
+  <data name="SettingsPage_26.Content" xml:space="preserve">
+    <value>Export logs</value>
+  </data>
+  <data name="Export_Done" xml:space="preserve">
+    <value>Saved {0} on your desktop. Attach it to a bug report. It contains device names and network addresses, but no keys and nothing from your screen.</value>
+  </data>
+  <data name="Export_Failed" xml:space="preserve">
+    <value>Couldn't export the logs: {0}</value>
+  </data>
 </root>

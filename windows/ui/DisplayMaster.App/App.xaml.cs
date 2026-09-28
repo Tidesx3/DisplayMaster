@@ -54,6 +54,13 @@ public partial class App : Application
         // --lang=de-DE: show the app in another language than Windows' (testing translations).
         var lang = Environment.GetCommandLineArgs().FirstOrDefault(a => a.StartsWith("--lang="))?["--lang=".Length..];
         if (!string.IsNullOrEmpty(lang)) Microsoft.Windows.Globalization.ApplicationLanguages.PrimaryLanguageOverride = lang;
+        // Support: when the window won't open, `DisplayMaster.exe --export-logs` still puts the
+        // report on the desktop.
+        if (Environment.GetCommandLineArgs().Contains("--export-logs"))
+        {
+            Services.LogExport.CreateAsync().GetAwaiter().GetResult();
+            Environment.Exit(0);
+        }
         if (Environment.GetCommandLineArgs().Contains("--smoke-test"))
         {
             SmokeTest();

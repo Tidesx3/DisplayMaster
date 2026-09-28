@@ -200,6 +200,24 @@ public sealed partial class SettingsViewModel : ObservableObject
         Process.Start(new ProcessStartInfo(dir) { UseShellExecute = true });
     }
 
+    /// <summary>Outcome of the last log export, shown under the About buttons.</summary>
+    [ObservableProperty] public partial string ExportResult { get; set; } = "";
+
+    [RelayCommand]
+    private async Task ExportLogsAsync()
+    {
+        try
+        {
+            var zip = await LogExport.CreateAsync();
+            ExportResult = Loc.F("Export_Done", Path.GetFileName(zip));
+            Process.Start("explorer.exe", $"/select,\"{zip}\"");
+        }
+        catch (Exception e)
+        {
+            ExportResult = Loc.F("Export_Failed", e.Message);
+        }
+    }
+
     [RelayCommand]
     private static void OpenProjectPage() =>
         Process.Start(new ProcessStartInfo($"https://github.com/{UpdateService.Repository}") { UseShellExecute = true });

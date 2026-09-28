@@ -448,4 +448,13 @@
   <data name="SettingsPage_25.Message" xml:space="preserve">
     <value>Eine andere App nutzt Strg + Alt + Win + → bereits, deshalb ist das Tastenkürzel aus. Schließe diese App und schalte die Option aus und wieder ein.</value>
   </data>
+  <data name="SettingsPage_26.Content" xml:space="preserve">
+    <value>Protokolle exportieren</value>
+  </data>
+  <data name="Export_Done" xml:space="preserve">
+    <value>{0} liegt auf deinem Desktop. Hänge die Datei an einen Fehlerbericht an. Sie enthält Gerätenamen und Netzwerkadressen, aber keine Schlüssel und nichts von deinem Bildschirm.</value>
+  </data>
+  <data name="Export_Failed" xml:space="preserve">
+    <value>Protokolle konnten nicht exportiert werden: {0}</value>
+  </data>
 </root>
