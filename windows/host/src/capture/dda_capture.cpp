@@ -78,6 +78,7 @@ bool DdaCapture::duplicate() {
 DdaCapture::Result DdaCapture::capture(uint32_t timeout_ms, ID3D11Texture2D* copy_to) {
     if (!dup_) {
         if (!duplicate()) {
+            if (FAILED(device_->GetDeviceRemovedReason())) return Result::Error;  // GPU reset: needs a new device
             // Temporarily unavailable (secure desktop): no new frames, try again later.
             Sleep(std::min<uint32_t>(timeout_ms, 100));
             return Result::Timeout;

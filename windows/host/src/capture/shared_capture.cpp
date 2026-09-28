@@ -25,7 +25,14 @@ std::shared_ptr<SharedCapture> SharedCapture::get(const std::wstring& gdi_name) 
     std::lock_guard lock(g_registry_mu);
     if (auto existing = g_registry[gdi_name].lock()) {
         std::lock_guard l(existing->mu_);
-        if (!existing->lost_) return existing;  // a lost one is replaced by a fresh duplication
+        // A GPU reset (TDR) removes the device: everything created on it fails from then
+        // on, so the capture needs a new device, not just a new duplication.
+        const HRESULT removed = existing->device()->GetDeviceRemovedReason();
+        if (FAILED(removed))
+            DM_LOGW("GPU device of %s was removed (%s) - recreating it", to_utf8(gdi_name).c_str(),
+                    hr_string(removed).c_str());
+        else if (!existing->lost_)
+            return existing;  // a lost one is replaced by a fresh duplication
     }
     auto sc = std::shared_ptr<SharedCapture>(new SharedCapture());
     if (!sc->init(gdi_name)) return nullptr;
